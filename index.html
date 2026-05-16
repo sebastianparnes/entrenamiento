@@ -1,0 +1,685 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
+<title>Training Log</title>
+
+<!-- PWA -->
+<link rel="manifest" href="./manifest.json">
+<meta name="theme-color" content="#0A0A0A">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta name="apple-mobile-web-app-title" content="Training">
+<link rel="apple-touch-icon" href="./apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="32x32" href="./favicon-32.png">
+
+<!-- Fonts -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=JetBrains+Mono:wght@400;500;700&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+<style>
+  :root {
+    --bg: #0A0A0A;
+    --card: #111111;
+    --border: #1F1F1F;
+    --muted: #737373;
+    --text: #FAFAFA;
+    --accent: #FF5C00;
+    --safe-top: env(safe-area-inset-top, 0px);
+    --safe-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  html, body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Manrope', system-ui, sans-serif;
+    min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+    overscroll-behavior-y: contain;
+  }
+  body {
+    padding: calc(20px + var(--safe-top)) 16px calc(80px + var(--safe-bottom));
+  }
+  .container { max-width: 1100px; margin: 0 auto; }
+
+  .hero { font-family: 'Anton', sans-serif; letter-spacing: -0.02em; line-height: 0.9; }
+  .mono { font-family: 'JetBrains Mono', monospace; }
+  .label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px; letter-spacing: 0.18em;
+    text-transform: uppercase; color: var(--muted);
+  }
+  .card { background: var(--card); border: 1px solid var(--border); }
+
+  .header {
+    display: flex; justify-content: space-between; align-items: flex-end;
+    padding-bottom: 16px; margin-bottom: 28px;
+    border-bottom: 1px solid var(--border); gap: 12px;
+  }
+  .header h1 { font-family: 'Anton', sans-serif; font-size: 40px; text-transform: uppercase; line-height: 0.9; }
+  .header h1 span { color: var(--accent); }
+  .header-date { margin-bottom: 6px; }
+
+  .btn-primary {
+    background: var(--accent); color: #000; border: none;
+    padding: 12px 18px; font-weight: 700; letter-spacing: 0.08em;
+    text-transform: uppercase; font-size: 11px; cursor: pointer;
+    display: inline-flex; gap: 6px; align-items: center;
+    font-family: inherit; min-height: 44px;
+  }
+  .btn-primary:active { opacity: 0.85; }
+  .btn-ghost {
+    background: transparent; color: var(--text);
+    border: 1px solid var(--border); padding: 10px 16px;
+    font-size: 11px; cursor: pointer; letter-spacing: 0.08em;
+    text-transform: uppercase; font-family: inherit; min-height: 44px;
+  }
+  .btn-danger {
+    background: #DC2626; color: #fff; border: none;
+    padding: 10px 16px; font-size: 11px; cursor: pointer;
+    letter-spacing: 0.08em; text-transform: uppercase;
+    font-family: inherit; font-weight: 700; min-height: 44px;
+  }
+
+  .stats-grid {
+    display: grid; grid-template-columns: 1fr 1fr;
+    gap: 1px; background: var(--border);
+    border: 1px solid var(--border); margin-bottom: 20px;
+  }
+  .stat-cell { background: var(--card); padding: 20px 18px; }
+  .stat-cell .label { margin-bottom: 12px; display: block; }
+  .stat-cell .num {
+    font-family: 'Anton', sans-serif; font-size: 44px;
+    line-height: 0.9; letter-spacing: -0.02em;
+  }
+  .stat-cell .unit { font-family: 'JetBrains Mono', monospace;
+    font-size: 10px; letter-spacing: 0.18em;
+    text-transform: uppercase; color: var(--muted); margin-top: 4px; }
+
+  .total { padding: 24px 22px; margin-bottom: 20px; }
+  .total .big {
+    font-family: 'Anton', sans-serif; color: var(--accent);
+    font-size: 72px; line-height: 0.9; letter-spacing: -0.02em;
+  }
+  .total-extras {
+    display: grid; grid-template-columns: repeat(3, 1fr);
+    gap: 16px; margin-top: 22px; padding-top: 22px;
+    border-top: 1px solid var(--border);
+  }
+  .total-extras .val { font-size: 18px; font-weight: 600; margin-top: 4px; font-family: 'JetBrains Mono', monospace; }
+
+  .chart-card { padding: 22px; margin-bottom: 20px; }
+  .chart {
+    height: 120px; display: flex; align-items: flex-end;
+    gap: 2px; margin-top: 16px;
+  }
+  .bar-wrap { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 6px; min-width: 0; position: relative; }
+  .bar {
+    width: 100%; background: var(--accent); border-radius: 2px 2px 0 0;
+    min-height: 2px; position: relative;
+  }
+  .bar.empty { background: var(--border); }
+  .bar-label {
+    font-family: 'JetBrains Mono', monospace; font-size: 9px;
+    color: var(--muted); letter-spacing: 0.05em;
+  }
+  .bar-value-tooltip {
+    position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%);
+    background: var(--bg); border: 1px solid var(--border);
+    padding: 4px 8px; font-family: 'JetBrains Mono', monospace;
+    font-size: 10px; color: var(--accent); white-space: nowrap;
+    margin-bottom: 4px; opacity: 0; pointer-events: none;
+    transition: opacity 0.15s;
+  }
+  .bar-wrap:hover .bar-value-tooltip,
+  .bar-wrap:active .bar-value-tooltip { opacity: 1; }
+
+  .sessions { padding: 22px; }
+  .sessions-header { display: flex; justify-content: space-between; margin-bottom: 16px; }
+  .session-row {
+    padding: 16px 0; border-bottom: 1px solid var(--border);
+    display: grid; grid-template-columns: 1fr auto;
+    gap: 12px; align-items: start;
+  }
+  .session-row:last-child { border-bottom: none; }
+  .session-main { display: flex; flex-direction: column; gap: 10px; }
+  .session-top { display: flex; align-items: center; gap: 10px; }
+  .session-icon { color: var(--accent); display: flex; }
+  .session-date { font-size: 14px; font-weight: 600; }
+  .session-type { font-family: 'JetBrains Mono', monospace; font-size: 10px;
+    letter-spacing: 0.15em; text-transform: uppercase; color: var(--muted); }
+  .session-metrics {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px;
+  }
+  .session-metrics .label { font-size: 9px; margin-bottom: 2px; display: block; }
+  .session-metrics .val { font-family: 'JetBrains Mono', monospace; font-size: 13px; }
+  .session-notes {
+    font-family: 'JetBrains Mono', monospace; font-size: 11px;
+    color: var(--muted); padding-top: 4px;
+  }
+  .delete-btn {
+    background: none; border: none; color: var(--muted);
+    cursor: pointer; padding: 8px; min-width: 36px; min-height: 36px;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .delete-btn:active { color: #DC2626; }
+  .empty-state { color: var(--muted); padding: 40px 0; text-align: center; font-size: 14px; }
+
+  .modal-bg {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.88);
+    display: flex; align-items: center; justify-content: center;
+    padding: 16px; z-index: 100; backdrop-filter: blur(4px);
+  }
+  .modal {
+    background: var(--card); border: 1px solid var(--border);
+    width: 100%; max-width: 480px; padding: 24px;
+    max-height: 90vh; overflow-y: auto;
+  }
+  .modal-header {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 20px;
+  }
+  .modal-header h2 {
+    font-family: 'Anton', sans-serif; font-size: 26px;
+    text-transform: uppercase; letter-spacing: -0.01em;
+  }
+  .close-btn {
+    background: none; border: none; color: var(--muted);
+    cursor: pointer; padding: 8px;
+  }
+  .field { margin-bottom: 16px; }
+  .field .label { display: block; margin-bottom: 8px; }
+  .input {
+    background: var(--bg); color: var(--text);
+    border: 1px solid var(--border); padding: 12px 14px;
+    width: 100%; font-size: 14px; font-family: 'JetBrains Mono', monospace;
+    min-height: 44px;
+  }
+  .input:focus { outline: none; border-color: var(--accent); }
+  textarea.input { font-family: 'Manrope', sans-serif; resize: vertical; min-height: 60px; }
+  .pills { display: flex; gap: 6px; flex-wrap: wrap; }
+  .pill {
+    padding: 10px 14px; border: 1px solid var(--border);
+    background: var(--bg); color: var(--muted); cursor: pointer;
+    font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase;
+    display: inline-flex; align-items: center; gap: 6px;
+    font-family: inherit; min-height: 40px;
+  }
+  .pill.active { background: var(--accent); border-color: var(--accent); color: #000; font-weight: 700; }
+  .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .preview {
+    padding: 12px 14px; background: var(--bg);
+    border: 1px solid var(--border); margin-bottom: 16px;
+    display: flex; justify-content: space-around;
+    font-family: 'JetBrains Mono', monospace; font-size: 12px;
+    color: var(--muted);
+  }
+  .preview strong { color: var(--accent); }
+  .modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 8px; }
+
+  /* Backup bar al final */
+  .backup-bar {
+    margin-top: 28px; padding: 18px 22px;
+    display: flex; flex-wrap: wrap; gap: 10px;
+    justify-content: space-between; align-items: center;
+  }
+  .backup-bar .info { font-size: 11px; color: var(--muted); }
+
+  @media (min-width: 640px) {
+    body { padding: calc(32px + var(--safe-top)) 24px calc(80px + var(--safe-bottom)); }
+    .header h1 { font-size: 56px; }
+    .stats-grid { grid-template-columns: repeat(4, 1fr); }
+    .stat-cell .num { font-size: 56px; }
+    .total { display: grid; grid-template-columns: 1.4fr 1fr 1fr 1fr; gap: 24px; align-items: center; }
+    .total .big { font-size: 88px; }
+    .total-extras { display: contents; }
+    .total-extras > div { padding: 0; }
+    .session-row {
+      grid-template-columns: auto 1.2fr repeat(4, 1fr) auto;
+      align-items: center; gap: 16px;
+    }
+    .session-main { display: contents; }
+    .session-metrics { display: contents; }
+    .session-metrics > div { display: block; }
+    .session-notes { grid-column: 2 / -1; }
+  }
+</style>
+</head>
+<body>
+<div class="container" id="root"></div>
+<input type="file" id="import-file" accept="application/json,.json" style="display:none">
+
+<script>
+const STORAGE_KEY = 'training-data-v1';
+
+const TYPES = {
+  cinta:     { label: 'Cinta',     icon: 'activity' },
+  calle:     { label: 'Calle',     icon: 'map-pin' },
+  bicicleta: { label: 'Bicicleta', icon: 'bike' },
+  caminata:  { label: 'Caminata',  icon: 'footprints' },
+};
+
+const ICONS = {
+  'activity':   '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>',
+  'map-pin':    '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 7-8 13-8 13s-8-6-8-13a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>',
+  'bike':       '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18.5" cy="17.5" r="3.5"/><circle cx="5.5" cy="17.5" r="3.5"/><circle cx="15" cy="5" r="1"/><path d="M12 17.5V14l-3-3 4-3 2 3h2"/></svg>',
+  'footprints': '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 16v-2.38C4 11.5 2.97 10.5 3 8c.03-2.72 1.49-6 4.5-6C9.37 2 10 3.8 10 5.5c0 3.11-2 5.66-2 8.68V16a2 2 0 1 1-4 0Z"/><path d="M20 20v-2.38c0-2.12 1.03-3.12 1-5.62-.03-2.72-1.48-6-4.5-6C14.63 6 14 7.8 14 9.5c0 3.11 2 5.66 2 8.68V20a2 2 0 1 0 4 0Z"/><path d="M16 17h4"/><path d="M4 13h4"/></svg>',
+  'plus':       '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>',
+  'trash':      '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-2 14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/></svg>',
+  'close':      '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>',
+};
+
+const SEED_WORKOUT = {
+  id: 'seed-2026-05-16',
+  date: '2026-05-16',
+  type: 'cinta',
+  distance: 6.26,
+  duration: 2700,
+  notes: 'Bodytone Evolution Cardio · 479 kcal · FC final 88 · incline 0',
+  createdAt: Date.now(),
+};
+
+let workouts = [];
+let modalOpen = false;
+let confirmDeleteId = null;
+
+// ---- utils ----
+function todayISO() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+function startOfWeek(iso) {
+  const d = new Date(iso + 'T00:00:00');
+  const day = d.getDay();
+  const diff = day === 0 ? -6 : 1 - day;
+  d.setDate(d.getDate() + diff);
+  return d.toISOString().slice(0, 10);
+}
+function startOfMonth(iso) { return iso.slice(0,7) + '-01'; }
+function startOfYear(iso)  { return iso.slice(0,4) + '-01-01'; }
+function parseDuration(str) {
+  if (!str) return 0;
+  const s = String(str).trim();
+  if (s.includes(':')) {
+    const p = s.split(':').map(x => parseInt(x, 10) || 0);
+    if (p.length === 3) return p[0]*3600 + p[1]*60 + p[2];
+    if (p.length === 2) return p[0]*60 + p[1];
+  }
+  return Math.round(parseFloat(s) * 60);
+}
+function fmtDuration(sec) {
+  if (!sec) return '0:00';
+  const h = Math.floor(sec/3600);
+  const m = Math.floor((sec%3600)/60);
+  const s = sec%60;
+  if (h > 0) return `${h}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+  return `${m}:${String(s).padStart(2,'0')}`;
+}
+function fmtSpeed(km, sec) {
+  if (!km || !sec) return '—';
+  return (km / (sec/3600)).toFixed(2).replace('.', ',');
+}
+function fmtPace(km, sec) {
+  if (!km || !sec) return '—';
+  const p = sec/km;
+  return `${Math.floor(p/60)}:${String(Math.round(p%60)).padStart(2,'0')}`;
+}
+function fmtKm(n) { return n.toFixed(2).replace('.', ','); }
+function fmtDate(iso) {
+  return new Date(iso+'T00:00:00').toLocaleDateString('es-AR', { weekday:'short', day:'numeric', month:'short' });
+}
+function fmtLongDate() {
+  return new Date().toLocaleDateString('es-AR', { weekday:'long', day:'numeric', month:'long', year:'numeric' });
+}
+
+// ---- persistencia (localStorage) ----
+function loadData() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) {
+      const data = JSON.parse(raw);
+      if (Array.isArray(data) && data.length > 0) {
+        workouts = data;
+        return;
+      }
+    }
+  } catch (e) { console.error('load:', e); }
+  workouts = [SEED_WORKOUT];
+  saveData();
+}
+function saveData() {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(workouts));
+  } catch (e) { console.error('save:', e); }
+}
+
+// ---- acciones ----
+function addWorkout(w) {
+  workouts = [...workouts, w].sort((a,b) =>
+    b.date.localeCompare(a.date) || b.createdAt - a.createdAt
+  );
+  saveData();
+  modalOpen = false;
+  render();
+}
+function deleteWorkout(id) {
+  workouts = workouts.filter(w => w.id !== id);
+  saveData();
+  confirmDeleteId = null;
+  render();
+}
+
+// ---- export / import (backup) ----
+function exportData() {
+  const blob = new Blob([JSON.stringify(workouts, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `training-backup-${todayISO()}.json`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+function importData() {
+  document.getElementById('import-file').click();
+}
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('import-file').addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      try {
+        const data = JSON.parse(ev.target.result);
+        if (!Array.isArray(data)) throw new Error('Formato inválido');
+        if (!confirm(`Importar ${data.length} sesiones? Esto REEMPLAZA los datos actuales.`)) return;
+        workouts = data;
+        saveData();
+        render();
+        alert('Datos importados.');
+      } catch (err) {
+        alert('Error al importar: ' + err.message);
+      }
+      e.target.value = '';
+    };
+    reader.readAsText(file);
+  });
+});
+
+// ---- stats ----
+function computeStats() {
+  const today = todayISO();
+  const sow = startOfWeek(today);
+  const som = startOfMonth(today);
+  const soy = startOfYear(today);
+  const sum = arr => arr.reduce((s,w) => s + w.distance, 0);
+  const sumT = arr => arr.reduce((s,w) => s + w.duration, 0);
+  return {
+    today: sum(workouts.filter(w => w.date === today)),
+    week:  sum(workouts.filter(w => w.date >= sow)),
+    month: sum(workouts.filter(w => w.date >= som)),
+    year:  sum(workouts.filter(w => w.date >= soy)),
+    total: sum(workouts),
+    totalTime: sumT(workouts),
+    sessions: workouts.length,
+    avgSpeed: workouts.length ? (sum(workouts) / (sumT(workouts)/3600)) : 0,
+  };
+}
+function chartData() {
+  const days = [];
+  const today = new Date();
+  for (let i = 13; i >= 0; i--) {
+    const d = new Date(today);
+    d.setDate(today.getDate() - i);
+    const iso = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    const km = workouts.filter(w => w.date === iso).reduce((s,w) => s + w.distance, 0);
+    days.push({ iso, label: d.getDate(), km });
+  }
+  return days;
+}
+
+// ---- render ----
+function render() {
+  const stats = computeStats();
+  const chart = chartData();
+  const maxKm = Math.max(...chart.map(d => d.km), 1);
+
+  const root = document.getElementById('root');
+  root.innerHTML = `
+    <header class="header">
+      <div>
+        <div class="label header-date">Sebastián · ${fmtLongDate()}</div>
+        <h1>Training <span>Log</span></h1>
+      </div>
+      <button class="btn-primary" onclick="openModal()">${ICONS.plus} Nuevo</button>
+    </header>
+
+    <div class="stats-grid">
+      ${[['Hoy', stats.today], ['Semana', stats.week], ['Mes', stats.month], ['Año', stats.year]]
+        .map(([l, v]) => `
+          <div class="stat-cell">
+            <div class="label">${l}</div>
+            <div class="num">${fmtKm(v)}</div>
+            <div class="unit">km</div>
+          </div>
+        `).join('')}
+    </div>
+
+    <div class="card total">
+      <div>
+        <div class="label" style="margin-bottom:10px">Acumulado total</div>
+        <div style="display:flex;align-items:baseline;gap:10px">
+          <span class="big">${fmtKm(stats.total)}</span>
+          <span class="mono" style="color:var(--muted);font-size:13px">km</span>
+        </div>
+      </div>
+      <div class="total-extras">
+        <div><div class="label">Sesiones</div><div class="val">${stats.sessions}</div></div>
+        <div><div class="label">Tiempo total</div><div class="val">${fmtDuration(stats.totalTime)}</div></div>
+        <div><div class="label">Vel. prom</div><div class="val">${stats.avgSpeed.toFixed(2).replace('.',',')} km/h</div></div>
+      </div>
+    </div>
+
+    <div class="card chart-card">
+      <div class="label">Últimos 14 días</div>
+      <div class="chart">
+        ${chart.map(d => {
+          const h = d.km > 0 ? (d.km / maxKm) * 100 : 0;
+          return `
+            <div class="bar-wrap">
+              <div class="bar-value-tooltip">${fmtKm(d.km)} km</div>
+              <div class="bar ${d.km === 0 ? 'empty' : ''}" style="height:${Math.max(h, d.km > 0 ? 4 : 2)}%"></div>
+              <div class="bar-label">${d.label}</div>
+            </div>
+          `;
+        }).join('')}
+      </div>
+    </div>
+
+    <div class="card sessions">
+      <div class="sessions-header">
+        <div class="label">Sesiones · ${workouts.length}</div>
+      </div>
+      ${workouts.length === 0
+        ? '<div class="empty-state">Sin entrenamientos cargados todavía.</div>'
+        : workouts.map(w => {
+            const t = TYPES[w.type] || TYPES.cinta;
+            return `
+              <div class="session-row">
+                <div class="session-main">
+                  <div class="session-top">
+                    <span class="session-icon">${ICONS[t.icon]}</span>
+                    <div>
+                      <div class="session-date">${fmtDate(w.date)}</div>
+                      <div class="session-type">${t.label}</div>
+                    </div>
+                  </div>
+                  <div class="session-metrics">
+                    <div><div class="label">Dist.</div><div class="val">${fmtKm(w.distance)} km</div></div>
+                    <div><div class="label">Tiempo</div><div class="val">${fmtDuration(w.duration)}</div></div>
+                    <div><div class="label">Vel.</div><div class="val">${fmtSpeed(w.distance, w.duration)} km/h</div></div>
+                    <div><div class="label">Pace</div><div class="val">${fmtPace(w.distance, w.duration)} /km</div></div>
+                  </div>
+                  ${w.notes ? `<div class="session-notes">↳ ${escapeHtml(w.notes)}</div>` : ''}
+                </div>
+                <button class="delete-btn" onclick="askDelete('${w.id}')" aria-label="Eliminar">
+                  ${ICONS.trash}
+                </button>
+              </div>
+            `;
+          }).join('')
+      }
+    </div>
+
+    <div class="card backup-bar">
+      <div class="info">Backup local · exportá un JSON de respaldo cada tanto</div>
+      <div style="display:flex;gap:10px">
+        <button class="btn-ghost" onclick="exportData()">Exportar</button>
+        <button class="btn-ghost" onclick="importData()">Importar</button>
+      </div>
+    </div>
+
+    ${modalOpen ? renderModal() : ''}
+    ${confirmDeleteId ? renderConfirm() : ''}
+  `;
+
+  if (modalOpen) wireForm();
+}
+
+function renderModal() {
+  return `
+    <div class="modal-bg" onclick="closeModal(event)">
+      <div class="modal" onclick="event.stopPropagation()">
+        <div class="modal-header">
+          <h2>Nueva sesión</h2>
+          <button class="close-btn" onclick="closeModal()">${ICONS.close}</button>
+        </div>
+
+        <div class="field">
+          <span class="label">Tipo</span>
+          <div class="pills" id="type-pills">
+            ${Object.entries(TYPES).map(([k,v]) => `
+              <button type="button" class="pill ${k === 'cinta' ? 'active' : ''}" data-type="${k}">
+                ${ICONS[v.icon]} ${v.label}
+              </button>
+            `).join('')}
+          </div>
+        </div>
+
+        <div class="field">
+          <span class="label">Fecha</span>
+          <input type="date" id="f-date" class="input" value="${todayISO()}">
+        </div>
+
+        <div class="row2">
+          <div class="field">
+            <span class="label">Distancia (km)</span>
+            <input type="text" inputmode="decimal" id="f-distance" class="input" placeholder="6,26">
+          </div>
+          <div class="field">
+            <span class="label">Tiempo (mm:ss)</span>
+            <input type="text" inputmode="numeric" id="f-duration" class="input" placeholder="45:00">
+          </div>
+        </div>
+
+        <div class="field">
+          <span class="label">Notas (opcional)</span>
+          <textarea id="f-notes" class="input" placeholder="kcal, FC, sensaciones, incline…"></textarea>
+        </div>
+
+        <div id="f-preview"></div>
+
+        <div class="modal-actions">
+          <button class="btn-ghost" onclick="closeModal()">Cancelar</button>
+          <button class="btn-primary" onclick="submitForm()">Guardar</button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function renderConfirm() {
+  return `
+    <div class="modal-bg" onclick="cancelDelete(event)">
+      <div class="modal" onclick="event.stopPropagation()" style="max-width:380px;text-align:center">
+        <div style="font-size:16px;margin-bottom:20px;padding:8px 0">¿Eliminar esta sesión?</div>
+        <div style="display:flex;gap:10px;justify-content:center">
+          <button class="btn-ghost" onclick="cancelDelete()">Cancelar</button>
+          <button class="btn-danger" onclick="confirmDelete()">Eliminar</button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function wireForm() {
+  document.querySelectorAll('#type-pills .pill').forEach(p => {
+    p.addEventListener('click', () => {
+      document.querySelectorAll('#type-pills .pill').forEach(x => x.classList.remove('active'));
+      p.classList.add('active');
+    });
+  });
+  const update = () => {
+    const dStr = document.getElementById('f-distance').value;
+    const tStr = document.getElementById('f-duration').value;
+    const d = parseFloat(dStr.replace(',', '.'));
+    const sec = parseDuration(tStr);
+    const prev = document.getElementById('f-preview');
+    if (d > 0 && sec > 0) {
+      prev.innerHTML = `
+        <div class="preview">
+          <span>vel: <strong>${fmtSpeed(d, sec)} km/h</strong></span>
+          <span>pace: <strong>${fmtPace(d, sec)} /km</strong></span>
+        </div>`;
+    } else {
+      prev.innerHTML = '';
+    }
+  };
+  document.getElementById('f-distance').addEventListener('input', update);
+  document.getElementById('f-duration').addEventListener('input', update);
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+// handlers
+window.openModal  = () => { modalOpen = true; render(); };
+window.closeModal = (e) => { if (!e || e.currentTarget === e.target) { modalOpen = false; render(); } };
+window.submitForm = () => {
+  const type = document.querySelector('#type-pills .pill.active').dataset.type;
+  const date = document.getElementById('f-date').value;
+  const dStr = document.getElementById('f-distance').value;
+  const tStr = document.getElementById('f-duration').value;
+  const notes = document.getElementById('f-notes').value.trim();
+  const d = parseFloat(dStr.replace(',', '.'));
+  const sec = parseDuration(tStr);
+  if (!d || !sec || !date) { alert('Faltan datos: distancia, tiempo o fecha.'); return; }
+  addWorkout({
+    id: `w-${Date.now()}`,
+    date, type, distance: d, duration: sec, notes,
+    createdAt: Date.now(),
+  });
+};
+window.askDelete    = (id) => { confirmDeleteId = id; render(); };
+window.cancelDelete = (e)  => { if (!e || e.currentTarget === e.target) { confirmDeleteId = null; render(); } };
+window.confirmDelete = ()  => { deleteWorkout(confirmDeleteId); };
+window.exportData = exportData;
+window.importData = importData;
+
+// service worker
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./service-worker.js').catch(() => {});
+  });
+}
+
+// init
+loadData();
+render();
+</script>
+</body>
+</html>
