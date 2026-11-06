@@ -33,33 +33,34 @@ export const CURATED = [
   {
     id: 'vicente-lopez', name: 'Paseo de la Costa · Vicente López y Puerto de Olivos',
     tagline: 'Bicisenda costera en zona norte, río a la derecha y vuelta por Saavedra.',
-    training: 4, exposure: 0.9, approxKm: 26,
+    training: 4, exposure: 0.9, approxKm: 28,
     tips: 'El paseo costero tiene sectores con mucha gente el fin de semana a la tarde; para tirar ritmo, temprano.',
     waypoints: [[-34.5535, -58.487], [-34.5229, -58.4684], [-34.5056, -58.4745], [-34.53, -58.487]],
   },
   {
-    id: 'san-isidro', name: 'Hasta San Isidro por el corredor norte',
-    tagline: 'La más larga: Olivos, Martínez y la Catedral de San Isidro.',
-    training: 3, exposure: 0.6, approxKm: 33,
+    id: 'san-isidro', name: 'Hasta San Isidro · fondo largo',
+    tagline: 'La más larga (~38 km): Puerto de Olivos, Martínez y la Catedral de San Isidro.',
+    training: 3, exposure: 0.6, approxKm: 38,
     tips: 'Buena para fondo. Llevá agua: casi todo el trayecto es urbano pero con tramos sin sombra.',
-    waypoints: [[-34.5535, -58.487], [-34.5229, -58.4684], [-34.5056, -58.4745], [-34.487, -58.498], [-34.4672, -58.5091], [-34.496, -58.505], [-34.53, -58.487]],
+    waypoints: [[-34.5056, -58.4745], [-34.4672, -58.5091]],
   },
   {
-    id: 'sarmiento', name: 'Parque Sarmiento + Saavedra + Devoto',
-    tagline: 'Circuito protegido del viento, por barrios y parques del oeste-norte.',
-    training: 3, exposure: 0.2, approxKm: 25,
+    id: 'sarmiento', name: 'Parque Sarmiento, Devoto y Parque Centenario',
+    tagline: 'Vuelta por barrios y parques con mucha ciclovía, protegida del viento.',
+    training: 3, exposure: 0.2, approxKm: 29,
     tips: 'La opción para días ventosos: casi todo entre edificios y arboledas.',
-    waypoints: [[-34.5535, -58.487], [-34.5533, -58.4981], [-34.556, -58.503], [-34.6007, -58.5133], [-34.599, -58.495]],
+    waypoints: [[-34.5533, -58.4981], [-34.6007, -58.5133], [-34.6065, -58.4355]],
   },
   {
     id: 'madero', name: 'Puerto Madero y Costanera Sur',
     tagline: 'Paseo urbano largo por ciclovías protegidas hasta la Reserva Ecológica.',
-    training: 2, exposure: 0.6, approxKm: 30,
+    training: 2, exposure: 0.6, approxKm: 32,
     tips: 'Más paseo que entreno: muchos semáforos en el centro. Lindo para ir tranquilo y parar en la Reserva.',
-    waypoints: [[-34.5822, -58.4555], [-34.5697, -58.4116], [-34.5875, -58.3895], [-34.6080, -58.3640], [-34.6155, -58.3575], [-34.6040, -58.4110], [-34.5990, -58.4330]],
+    waypoints: [[-34.5697, -58.4116], [-34.608, -58.364], [-34.6155, -58.3575]],
   },
 ];
 
+const hashWps = (w) => { const t = JSON.stringify(w); let x = 0; for (let i = 0; i < t.length; i++) x = (x * 31 + t.charCodeAt(i)) | 0; return (x >>> 0).toString(36); };
 export const homeKey = (home) => `${home.lat.toFixed(4)},${home.lon.toFixed(4)}`;
 
 export function routePoints(route, home) {
@@ -72,7 +73,7 @@ export function routePoints(route, home) {
 export async function computeRoute(route, home, profile = 'trekking', { force = false } = {}) {
   const pts = route.coords && !route.waypoints ? null : routePoints(route, home);
   if (!pts) return { coords: route.coords, spans: route.spans || [{ from: 0, to: route.coords.length - 1, cls: 'road' }], distanceKm: route.distanceKm, ascentM: route.ascentM || 0, share: route.share || null };
-  const key = `route:${route.id}:${profile}:${homeKey(home)}:${JSON.stringify(route.waypoints).length}`;
+  const key = `route:${route.id}:${profile}:${homeKey(home)}:${hashWps(route.waypoints)}`;
   if (!force) {
     const c = await get('kv', key);
     if (c && Date.now() - c.value.t < 30 * 86400e3) return c.value.data;
@@ -85,7 +86,7 @@ export async function computeRoute(route, home, profile = 'trekking', { force = 
 
 export async function cachedRoute(route, home, profile = 'trekking') {
   if (route.coords && !route.waypoints) return { coords: route.coords, distanceKm: route.distanceKm, share: route.share || null };
-  const key = `route:${route.id}:${profile}:${homeKey(home)}:${JSON.stringify(route.waypoints).length}`;
+  const key = `route:${route.id}:${profile}:${homeKey(home)}:${hashWps(route.waypoints)}`;
   const c = await get('kv', key);
   return c ? c.value.data : null;
 }

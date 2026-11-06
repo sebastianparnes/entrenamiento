@@ -1,5 +1,5 @@
 // Service worker: app usable sin conexión + caché de mapas y rutas.
-const VERSION = 'pedal-v2';
+const VERSION = 'pedal-v3';
 const SHELL = [
   '/', '/index.html', '/styles.css', '/manifest.webmanifest',
   '/js/app.js', '/js/util.js', '/js/store.js', '/js/routes.js', '/js/recorder.js', '/js/stats.js', '/js/gpx.js', '/js/share.js',
