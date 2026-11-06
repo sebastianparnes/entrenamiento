@@ -4,7 +4,7 @@
 import { api, distM, bearing, angleDiff, destination, compassName, fmtNum } from './util.js';
 import { get, put } from './store.js';
 
-export const DEFAULT_HOME = { label: 'Chorroarín 530, CABA', lat: -34.5906, lon: -58.4838 };
+export const DEFAULT_HOME = { label: 'Chorroarín 530, CABA', lat: -34.5904, lon: -58.4748 };
 
 export const PROFILES = {
   safety:   { label: 'Máx. ciclovía', hint: 'Prioriza ciclovías y calles tranquilas aunque alargue un poco' },
@@ -17,39 +17,39 @@ export const PROFILES = {
 // exposure: cuánto te pega el viento (0 = protegida, 1 = costanera abierta).
 export const CURATED = [
   {
-    id: 'bosques', name: 'Bosques de Palermo · vueltas al lago',
+    id: 'bosques', name: 'Bosques de Palermo · 3 vueltas al Rosedal',
     tagline: 'El circuito clásico para entrenar: asfalto liso y vueltas sin semáforos.',
-    training: 5, exposure: 0.5, approxKm: 27, weekendBonus: true,
+    training: 5, exposure: 0.5, approxKm: 26, weekendBonus: true,
     tips: 'Los fines de semana y feriados el circuito de los lagos suele estar cerrado a los autos: ideal para meter ritmo. Entre semana, temprano a la mañana está más tranquilo.',
-    waypoints: [[-34.5822, -58.4555], [-34.5697, -58.4116], [-34.5733, -58.4188], [-34.5652, -58.4252], [-34.5626, -58.4168], [-34.5697, -58.4116], [-34.5733, -58.4188], [-34.5652, -58.4252], [-34.5626, -58.4168], [-34.5822, -58.4555]],
+    waypoints: [[-34.5822, -58.4555], [-34.571, -58.4172], [-34.5662, -58.4152], [-34.5697, -58.4116], [-34.571, -58.4172], [-34.5662, -58.4152], [-34.5697, -58.4116], [-34.571, -58.4172], [-34.5662, -58.4152], [-34.5697, -58.4116], [-34.571, -58.4172], [-34.5822, -58.4555]],
   },
   {
     id: 'costanera', name: 'Costanera Norte + Ciudad Universitaria',
     tagline: 'Rectas largas junto al río y Parque de la Memoria. Mucho viento.',
     training: 4, exposure: 1, approxKm: 29, night: false,
     tips: 'Con viento del norte salí hacia la costanera de entrada (contra) y volvé empujado. De noche es más solitaria: mejor de día.',
-    waypoints: [[-34.5822, -58.4555], [-34.5697, -58.4116], [-34.5617, -58.4004], [-34.5448, -58.4385], [-34.5460, -58.4620], [-34.5535, -58.4870]],
+    waypoints: [[-34.5822, -58.4555], [-34.5697, -58.4116], [-34.5617, -58.4004], [-34.5394, -58.4422], [-34.546, -58.462], [-34.5535, -58.487]],
   },
   {
     id: 'vicente-lopez', name: 'Paseo de la Costa · Vicente López y Puerto de Olivos',
     tagline: 'Bicisenda costera en zona norte, río a la derecha y vuelta por Saavedra.',
     training: 4, exposure: 0.9, approxKm: 26,
     tips: 'El paseo costero tiene sectores con mucha gente el fin de semana a la tarde; para tirar ritmo, temprano.',
-    waypoints: [[-34.5535, -58.4870], [-34.5235, -58.4675], [-34.5083, -58.4842], [-34.5300, -58.4870]],
+    waypoints: [[-34.5535, -58.487], [-34.5229, -58.4684], [-34.5056, -58.4745], [-34.53, -58.487]],
   },
   {
     id: 'san-isidro', name: 'Hasta San Isidro por el corredor norte',
     tagline: 'La más larga: Olivos, Martínez y la Catedral de San Isidro.',
     training: 3, exposure: 0.6, approxKm: 33,
     tips: 'Buena para fondo. Llevá agua: casi todo el trayecto es urbano pero con tramos sin sombra.',
-    waypoints: [[-34.5535, -58.4870], [-34.5083, -58.4842], [-34.4870, -58.4980], [-34.4718, -58.5067], [-34.4960, -58.5050], [-34.5300, -58.4870]],
+    waypoints: [[-34.5535, -58.487], [-34.5229, -58.4684], [-34.5056, -58.4745], [-34.487, -58.498], [-34.4672, -58.5091], [-34.496, -58.505], [-34.53, -58.487]],
   },
   {
     id: 'sarmiento', name: 'Parque Sarmiento + Saavedra + Devoto',
     tagline: 'Circuito protegido del viento, por barrios y parques del oeste-norte.',
     training: 3, exposure: 0.2, approxKm: 25,
     tips: 'La opción para días ventosos: casi todo entre edificios y arboledas.',
-    waypoints: [[-34.5535, -58.4870], [-34.5575, -58.5000], [-34.5605, -58.5070], [-34.6007, -58.5133], [-34.5990, -58.4950]],
+    waypoints: [[-34.5535, -58.487], [-34.5533, -58.4981], [-34.556, -58.503], [-34.6007, -58.5133], [-34.599, -58.495]],
   },
   {
     id: 'madero', name: 'Puerto Madero y Costanera Sur',
