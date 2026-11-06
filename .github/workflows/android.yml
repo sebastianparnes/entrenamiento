@@ -19,53 +19,45 @@ jobs:
     env:
       BUILD_NUMBER: ${{ github.run_number }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: 22
 
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: 21
 
-      - uses: android-actions/setup-android@v3
-
       # Firma: si el repo tiene los secrets ANDROID_KEYSTORE_B64 y ANDROID_KEYSTORE_PASSWORD
       # se usa siempre la misma clave (las actualizaciones se instalan encima).
       # Si no, se genera una clave temporal para esta corrida.
-      - name: Preparar firma
+      - name: Compilar APK
+        working-directory: mobile
         env:
           KS_B64: ${{ secrets.ANDROID_KEYSTORE_B64 }}
           KS_PASS: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
         run: |
-          KS="$RUNNER_TEMP/pedal-ba.jks"
-          if [ -n "$KS_B64" ] && [ -n "$KS_PASS" ]; then
-            echo "$KS_B64" | base64 -d > "$KS"
-            PASS="$KS_PASS"
-            echo "SIGNING=estable" >> "$GITHUB_ENV"
-          else
-            PASS="$(openssl rand -hex 16)"
-            keytool -genkeypair -keystore "$KS" -alias pedalba -keyalg RSA -keysize 2048 -validity 10000 \
-              -storepass "$PASS" -keypass "$PASS" -dname "CN=Pedal BA, C=AR"
-            echo "SIGNING=temporal" >> "$GITHUB_ENV"
-          fi
-          echo "::add-mask::$PASS"
-          {
-            echo "ANDROID_KEYSTORE_PATH=$KS"
-            echo "ANDROID_KEYSTORE_PASSWORD=$PASS"
-            echo "ANDROID_KEY_PASSWORD=$PASS"
-            echo "ANDROID_KEY_ALIAS=pedalba"
-          } >> "$GITHUB_ENV"
-
-      - name: Compilar APK
-        working-directory: mobile
-        run: |
           set -o pipefail
           {
+            set -e
+            echo "== entorno"; java -version; node -v; echo "ANDROID_HOME=$ANDROID_HOME ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT"
+            echo "== firma"
+            KS="$RUNNER_TEMP/pedal-ba.jks"
+            if [ -n "$KS_B64" ] && [ -n "$KS_PASS" ]; then
+              echo "$KS_B64" | base64 -d > "$KS"; PASS="$KS_PASS"; SIGNING=estable
+            else
+              PASS="$(openssl rand -hex 16)"; SIGNING=temporal
+              keytool -genkeypair -keystore "$KS" -alias pedalba -keyalg RSA -keysize 2048 -validity 10000 -storepass "$PASS" -keypass "$PASS" -dname "CN=Pedal BA, C=AR"
+            fi
+            echo "SIGNING=$SIGNING" >> "$GITHUB_ENV"
+            export ANDROID_KEYSTORE_PATH="$KS" ANDROID_KEYSTORE_PASSWORD="$PASS" ANDROID_KEY_PASSWORD="$PASS" ANDROID_KEY_ALIAS=pedalba
+            echo "firma $SIGNING"
+            echo "== npm"
             npm ci
             npm run sync
+            echo "== gradle"
             cd android
             chmod +x gradlew
             ./gradlew assembleRelease --no-daemon --stacktrace
