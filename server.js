@@ -68,7 +68,7 @@ async function readBody(req, limit = 15 * 1024 * 1024) {
 // ---------- API: ruteo ----------
 const PROFILES = new Set(['trekking', 'fastbike', 'safety', 'shortest']);
 async function apiRoute(q) {
-  const pts = (q.get('pts') || '').split('|').map(s => s.split(',').map(Number)).filter(p => p.length === 2 && p.every(Number.isFinite));
+  const pts = (q.get('pts') || '').split(/\||;|~|%7C/i).map(s => s.split(',').map(Number)).filter(p => p.length === 2 && p.every(Number.isFinite));
   if (pts.length < 2 || pts.length > 30) throw Object.assign(new Error('Necesito entre 2 y 30 puntos'), { status: 400 });
   const profile = PROFILES.has(q.get('profile')) ? q.get('profile') : 'trekking';
   const lonlats = pts.map(([lon, lat]) => `${lon.toFixed(6)},${lat.toFixed(6)}`).join('|');
