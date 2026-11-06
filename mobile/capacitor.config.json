@@ -1,0 +1,19 @@
+{
+  "appId": "ar.pedalba.app",
+  "appName": "Pedal BA",
+  "webDir": "www",
+  "server": {
+    "androidScheme": "https"
+  },
+  "android": {
+    "useLegacyBridge": true,
+    "backgroundColor": "#0b0d10",
+    "adjustMarginsForEdgeToEdge": "force"
+  },
+  "plugins": {
+    "LocalNotifications": {
+      "smallIcon": "ic_stat_bike",
+      "iconColor": "#c6f432"
+    }
+  }
+}

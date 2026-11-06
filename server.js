@@ -168,6 +168,14 @@ async function serveStatic(req, res, pathname) {
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, 'http://x');
   const p = url.pathname;
+  if (p.startsWith('/api/')) {
+    // la app de Android se sirve desde https://localhost y llama a esta API
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Headers', 'Authorization, Content-Type');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    res.setHeader('Access-Control-Max-Age', '86400');
+    if (req.method === 'OPTIONS') { res.writeHead(204); return res.end(); }
+  }
   try {
     if (p === '/api/health') return send(res, 200, { ok: true, sync: Boolean(APP_TOKEN), persistent: existsSync(DATA_DIR) });
     if (p === '/api/route') return send(res, 200, await apiRoute(url.searchParams), { 'Cache-Control': 'public, max-age=3600' });

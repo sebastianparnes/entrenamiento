@@ -1,4 +1,5 @@
 // Almacenamiento local (IndexedDB) + sincronización opcional con el servidor.
+import { apiUrl } from './native.js';
 
 const DB_NAME = 'pedal-ba';
 const STORES = ['activities', 'routes', 'kv'];
@@ -84,7 +85,7 @@ export async function sync({ full = false } = {}) {
     for (const o of await getAll(kind)) if ((o.updatedAt || 0) > lastPush) items.push({ id: `${kind}:${o.id}`, kind, updatedAt: o.updatedAt, data: o });
   }
   const startedAt = Date.now();
-  const r = await fetch('/api/sync', {
+  const r = await fetch(apiUrl('/api/sync'), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
     body: JSON.stringify({ since, items }),

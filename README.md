@@ -41,3 +41,11 @@ npm test
 ## App vieja
 
 La versión anterior (Training Log) quedó en `legacy/` y en la rama `legacy-2026`. Si abrís la dirección vieja de GitHub Pages, te ofrece pasar las sesiones guardadas a Pedal BA.
+
+## App Android
+
+`mobile/` tiene la app nativa (Capacitor 7) que empaqueta la misma PWA y agrega GPS en segundo plano (servicio con notificación fija), voz y compartir nativo. GitHub Actions (`.github/workflows/android.yml`) compila el APK en cada cambio y lo publica en Releases:
+
+https://github.com/sebastianparnes/entrenamiento/releases/latest/download/pedal-ba.apk
+
+Para que las actualizaciones se instalen encima de la versión anterior, el repo necesita los secrets `ANDROID_KEYSTORE_B64` (keystore en base64) y `ANDROID_KEYSTORE_PASSWORD`. Sin ellos cada compilación se firma con una clave temporal y hay que desinstalar antes de actualizar.

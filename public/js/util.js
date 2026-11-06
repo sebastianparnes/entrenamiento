@@ -1,4 +1,5 @@
 // Utilidades generales: formato, geometría, DOM.
+import { isNative, apiUrl, nativeShare } from './native.js';
 
 export const TYPES = {
   bici:    { label: 'Bici',    emoji: '🚴', color: '#c6f432', gps: true,  speed: true },
@@ -173,12 +174,14 @@ export function sheet(title, content, { onClose } = {}) {
 }
 
 export function download(blob, filename) {
+  if (isNative) { nativeShare(blob, filename, filename).catch(e => toast(e.message)); return; }
   const a = h('a', { href: URL.createObjectURL(blob), download: filename });
   document.body.append(a); a.click(); a.remove();
   setTimeout(() => URL.revokeObjectURL(a.href), 4000);
 }
 
 export async function shareOrDownload(blob, filename, title) {
+  if (isNative) return nativeShare(blob, filename, title);
   const file = new File([blob], filename, { type: blob.type });
   if (navigator.canShare?.({ files: [file] })) {
     try { await navigator.share({ files: [file], title }); return 'shared'; }
@@ -189,7 +192,7 @@ export async function shareOrDownload(blob, filename, title) {
 }
 
 export async function api(path, opts = {}) {
-  const r = await fetch(path, opts);
+  const r = await fetch(apiUrl(path), opts);
   const isJson = (r.headers.get('content-type') || '').includes('json');
   const body = isJson ? await r.json() : await r.text();
   if (!r.ok) throw new Error(body?.error || body || `Error ${r.status}`);

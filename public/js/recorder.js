@@ -1,6 +1,7 @@
 // Grabación GPS. Funciona con la app abierta: el wake lock mantiene la
 // pantalla prendida para que el navegador no corte el GPS.
 import { distM, fmtPace, fmtNum } from './util.js';
+import { isNative, plugin, speak, ensureNotificationPermission } from './native.js';
 
 const LIVE_KEY = 'pedal-live-v1';
 
@@ -12,7 +13,7 @@ export class Recorder {
     this.pausedMs = 0; this.pauseStart = null;
     this.distM = 0; this.lastFix = null; this.accuracy = null; this.curKmh = 0;
     this.nextKm = 1; this.watchId = null; this.wakeLock = null; this.state = 'idle';
-    this._vis = () => { if (document.visibilityState === 'visible' && this.state === 'running') this.lock(); };
+    this._vis = () => { if (document.visibilityState === 'visible' && this.state === 'running') { if (!isNative) this.lock(); this.emit(); } };
   }
 
   static pending() {
@@ -38,14 +39,33 @@ export class Recorder {
   }
 
   async start() {
-    if (!('geolocation' in navigator)) throw new Error('Este navegador no tiene GPS disponible');
+    if (!isNative && !('geolocation' in navigator)) throw new Error('Este navegador no tiene GPS disponible');
     if (!this.startedAt) this.startedAt = Date.now();
     if (this.pauseStart) { this.pausedMs += Date.now() - this.pauseStart; this.pauseStart = null; }
     this.lastFix = null; // tras una pausa no unimos con línea recta
     this.state = 'running';
-    this.watchId = navigator.geolocation.watchPosition(p => this.onPos(p), e => this.onErr(e), { enableHighAccuracy: true, maximumAge: 0, timeout: 30000 });
+    if (isNative) {
+      // GPS nativo con servicio en primer plano: sigue grabando con la pantalla apagada
+      await ensureNotificationPermission();
+      const BG = plugin('BackgroundGeolocation');
+      this.nativeId = await BG.addWatcher({
+        backgroundTitle: 'Pedal BA está grabando',
+        backgroundMessage: 'Tocá para volver a la app. Terminá la actividad para cortar el GPS.',
+        requestPermissions: true, stale: false, distanceFilter: 3,
+      }, (loc, err) => {
+        if (err) {
+          if (err.code === 'NOT_AUTHORIZED') { this.error = 'Sin permiso de ubicación: habilitalo en Ajustes.'; if (confirm('La app necesita tu ubicación. ¿Abrir los ajustes?')) BG.openSettings(); }
+          else this.error = 'Buscando señal GPS…';
+          this.emit(); return;
+        }
+        if (this.state !== 'running') return;
+        this.onPos({ coords: { latitude: loc.latitude, longitude: loc.longitude, accuracy: loc.accuracy, altitude: loc.altitude, speed: loc.speed }, timestamp: loc.time || Date.now() });
+      });
+    } else {
+      this.watchId = navigator.geolocation.watchPosition(p => this.onPos(p), e => this.onErr(e), { enableHighAccuracy: true, maximumAge: 0, timeout: 30000 });
+    }
     document.addEventListener('visibilitychange', this._vis);
-    await this.lock();
+    if (!isNative) await this.lock();
     this.tick = setInterval(() => this.emit(), 1000);
     this.emit();
   }
@@ -53,12 +73,17 @@ export class Recorder {
   pause() {
     if (this.state !== 'running') return;
     this.state = 'paused'; this.pauseStart = Date.now();
-    navigator.geolocation.clearWatch(this.watchId); this.watchId = null;
+    this.clearWatchers();
     this.persist(); this.emit();
   }
 
+  clearWatchers() {
+    if (this.watchId != null) { navigator.geolocation.clearWatch(this.watchId); this.watchId = null; }
+    if (this.nativeId != null) { plugin('BackgroundGeolocation').removeWatcher({ id: this.nativeId }).catch(() => {}); this.nativeId = null; }
+  }
+
   async stop() {
-    if (this.watchId != null) navigator.geolocation.clearWatch(this.watchId);
+    this.clearWatchers();
     clearInterval(this.tick);
     document.removeEventListener('visibilitychange', this._vis);
     try { await this.wakeLock?.release(); } catch {}
@@ -109,9 +134,7 @@ export class Recorder {
       ? `Kilómetro ${this.nextKm}. Promedio ${fmtNum(km / (el / 3600), 1)} kilómetros por hora.`
       : `Kilómetro ${this.nextKm}. Ritmo ${fmtPace(km, el).replace(':', ' minutos ')} segundos por kilómetro.`;
     this.nextKm = Math.floor(km) + 1;
-    if (this.voice && 'speechSynthesis' in window) {
-      const u = new SpeechSynthesisUtterance(msg); u.lang = 'es-AR'; speechSynthesis.speak(u);
-    }
+    if (this.voice) speak(msg);
     if (navigator.vibrate) navigator.vibrate([120, 80, 120]);
   }
 

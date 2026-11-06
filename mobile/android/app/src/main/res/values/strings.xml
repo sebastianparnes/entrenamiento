@@ -1,0 +1,10 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Pedal BA</string>
+    <string name="title_activity_main">Pedal BA</string>
+    <string name="package_name">ar.pedalba.app</string>
+    <string name="custom_url_scheme">ar.pedalba.app</string>
+    <string name="capacitor_background_geolocation_notification_channel_name">Grabación de actividad</string>
+    <string name="capacitor_background_geolocation_notification_icon">drawable/ic_tracking</string>
+    <string name="capacitor_background_geolocation_notification_color">#C6F432</string>
+</resources>

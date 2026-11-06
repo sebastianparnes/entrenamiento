@@ -10,6 +10,7 @@ import {
 import { Recorder } from './recorder.js';
 import { computeStats, periodTotals, weeklySeries } from './stats.js';
 import { toGPX, parseGPX } from './gpx.js';
+import { isNative, APK_URL, currentBuild, latestBuild, openExternal, setupBackButton, minimizeApp } from './native.js';
 
 const app = $('#app');
 const S = { home: DEFAULT_HOME, profile: 'trekking', voice: true, weather: null, wxAt: 0, generated: new Map(), maps: [] };
@@ -377,7 +378,9 @@ async function viewGrabar(params) {
     voice.addEventListener('change', () => { S.voice = voice.checked; store.setSetting('voice', voice.checked); });
     body.replaceChildren(
       route ? h('div', { class: 'card small' }, '🗺️ Siguiendo: ', h('b', {}, route.name), ' ', h('a', { href: '#/grabar' }, 'quitar')) : '',
-      h('div', { class: 'notice', style: { margin: '12px 0' } }, 'Dejá la app abierta con la pantalla prendida (la mantengo encendida yo). Si bloqueás el celu o cambiás de app, el navegador corta el GPS y ese tramo queda en línea recta.'),
+      isNative
+        ? h('div', { class: 'card small', style: { margin: '12px 0' } }, '📍 Podés bloquear el celu o usar otras apps: el GPS sigue grabando y vas a ver una notificación fija mientras dure la actividad.')
+        : h('div', { class: 'notice', style: { margin: '12px 0' } }, 'Dejá la app abierta con la pantalla prendida (la mantengo encendida yo). Si bloqueás el celu o cambiás de app, el navegador corta el GPS y ese tramo queda en línea recta. La app de Android no tiene esta limitación (Más → App Android).'),
       h('label', { class: 'row small', style: { margin: '6px 2px 14px' } }, voice, 'Avisos por voz en cada kilómetro'),
       h('button', { class: 'btn primary block', style: { padding: '18px', fontSize: '17px' }, onclick: () => startLive(new Recorder({ type, routeId, voice: S.voice }), routeId) }, `▶ Empezar ${TYPES[type].label.toLowerCase()}`),
       h('details', { style: { marginTop: '18px' } }, h('summary', { class: 'muted small' }, 'Me olvidé de grabar: cargar a mano'), h('div', { style: { marginTop: '10px' } }, manualForm(type))),
@@ -680,6 +683,7 @@ async function viewMas() {
         } }, 'Guardar y sincronizar'),
         h('button', { class: 'btn', onclick: async () => { try { const r = await store.sync(); toast(r.skipped ? 'Sin clave configurada' : `↑${r.pushed} ↓${r.pulled}`); viewMas(); } catch (e) { toast(e.message); } } }, 'Sincronizar ahora')),
       syncStatus),
+    androidCard(),
     h('div', { class: 'card' }, h('h3', {}, '⚙️ Preferencias'),
       h('label', { class: 'row small', style: { marginTop: '10px' } }, voice, 'Avisos por voz cada kilómetro al grabar')),
     h('div', { class: 'card' }, h('h3', {}, '📦 Datos'),
@@ -700,6 +704,28 @@ async function viewMas() {
       h('p', {}, 'Ruteo: BRouter sobre OpenStreetMap (incluye ciclovías y bicisendas mapeadas de CABA y zona norte). Clima: Open-Meteo. Mapas: CyclOSM, CARTO y Waymarked Trails. Direcciones: Nominatim.'),
       h('p', {}, 'Para grabar con el GPS la app tiene que estar abierta: los navegadores no dejan usar la ubicación en segundo plano.')),
   );
+}
+
+function androidCard() {
+  if (!isNative) {
+    return h('div', { class: 'card' }, h('h3', {}, '🤖 App Android'),
+      h('div', { class: 'muted small', style: { margin: '4px 0 10px' } }, 'Graba con la pantalla apagada y el celu en el bolsillo. Bajá el APK e instalalo (Android te va a pedir permitir apps de origen desconocido).'),
+      h('a', { class: 'btn primary block', href: APK_URL }, '⬇ Descargar Pedal BA para Android'));
+  }
+  const info = h('div', { class: 'muted small', style: { margin: '4px 0 10px' } }, 'Consultando versión…');
+  const card = h('div', { class: 'card' }, h('h3', {}, '🤖 App Android'), info,
+    h('button', { class: 'btn block', onclick: () => checkUpdate(false) }, 'Buscar actualización'));
+  currentBuild().then(b => { info.textContent = `Versión instalada: ${b || 'desarrollo'}`; });
+  return card;
+}
+
+async function checkUpdate(silent) {
+  try {
+    const [cur, last] = await Promise.all([currentBuild(), latestBuild()]);
+    if (last > cur && cur > 0) {
+      if (confirm(`Hay una versión nueva de Pedal BA (${last}). ¿La bajo ahora? Tus datos se mantienen.`)) openExternal(APK_URL);
+    } else if (!silent) toast('Tenés la última versión');
+  } catch (e) { if (!silent) toast(e.message); }
 }
 
 async function setHome(home) {
@@ -774,7 +800,14 @@ async function boot() {
   store.scheduleSync(800);
   window.addEventListener('online', () => store.scheduleSync(500));
 
-  if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(() => {});
+  if (!isNative && 'serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(() => {});
+  setupBackButton(({ canGoBack }) => {
+    if (document.querySelector('.sheet-wrap')) { document.querySelector('.sheet-wrap .icon-btn')?.click(); return; }
+    if (REC) { minimizeApp(); return; }           // grabando: nunca cerrar la app
+    const hash = location.hash || '#/';
+    if (hash !== '#/' && hash !== '') history.back(); else minimizeApp();
+  });
+  if (isNative) checkUpdate(true);
   try { await navigator.storage?.persist?.(); } catch {}
 }
 

@@ -1,0 +1,23 @@
+{
+  "name": "pedal-ba-mobile",
+  "version": "1.0.0",
+  "private": true,
+  "description": "App Android de Pedal BA (Capacitor)",
+  "scripts": {
+    "prepare": "node prepare-web.mjs",
+    "sync": "node prepare-web.mjs && cap sync android"
+  },
+  "dependencies": {
+    "@capacitor-community/background-geolocation": "1.3.1",
+    "@capacitor-community/text-to-speech": "6.1.0",
+    "@capacitor/android": "7.6.10",
+    "@capacitor/app": "^7.1.2",
+    "@capacitor/core": "7.6.10",
+    "@capacitor/filesystem": "^7.1.9",
+    "@capacitor/local-notifications": "7.0.7",
+    "@capacitor/share": "^7.0.4"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "7.6.10"
+  }
+}
