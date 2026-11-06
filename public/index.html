@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="es-AR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Pedal BA</title>
+  <meta name="description" content="Rutas en bici por Buenos Aires y registro de entrenamientos">
+  <meta name="theme-color" content="#0b0d10">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Pedal BA">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="icon" href="/icons/icon-192.png" type="image/png">
+  <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap">
+  <link rel="stylesheet" href="/vendor/leaflet.css">
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <main id="app"></main>
+  <nav class="tabs" id="tabs">
+    <a href="#/" data-tab="hoy"><span class="i">☀️</span>Hoy</a>
+    <a href="#/rutas" data-tab="rutas"><span class="i">🗺️</span>Rutas</a>
+    <a href="#/grabar" data-tab="grabar" class="rec"><span class="i">●</span>Grabar</a>
+    <a href="#/historial" data-tab="historial"><span class="i">📈</span>Historial</a>
+    <a href="#/mas" data-tab="mas"><span class="i">⚙️</span>Más</a>
+  </nav>
+  <script src="/vendor/leaflet.js"></script>
+  <script type="module" src="/js/app.js"></script>
+</body>
+</html>
