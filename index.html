@@ -19,12 +19,12 @@
   <div style="color:#c6f432;font-weight:900;letter-spacing:.05em;font-size:13px">PEDAL BA</div>
   <h1>El Training Log se mudó</h1>
   <p id="msg">La app nueva tiene rutas en bici, GPS, historial y para compartir tus recorridos.</p>
-  <a class="b" id="go" href="__APP_URL__/">Abrir Pedal BA</a>
+  <a class="b" id="go" href="https://pedal-ba-production.up.railway.app/">Abrir Pedal BA</a>
   <a class="s" href="./legacy/">Abrir la app vieja</a>
   <p><small>Instalala desde la app nueva con “Agregar a pantalla de inicio”.</small></p>
 </div>
 <script>
-  const APP = '__APP_URL__';
+  const APP = 'https://pedal-ba-production.up.railway.app';
   try {
     const raw = localStorage.getItem('training-data-v1');
     const data = raw ? JSON.parse(raw) : [];
