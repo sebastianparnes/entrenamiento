@@ -64,3 +64,9 @@ test('navegación: anuncia giros, fuera de ruta y llegada', () => {
   assert.equal(said.filter(s => s.startsWith('Doblá a la derecha')).length, 1, txt);
   console.log(said.join('\n'));
 });
+
+test('respeta comandos y ángulos reales de BRouter', () => {
+  // valores tomados de una respuesta real (Chorroarín → Parque Centenario)
+  const ms = buildManeuvers(pts, [[10, 5, 0, 111, 97], [20, 1, 0, 557, 0], [30, 7, 0, 67, 139], [40, 4, 0, 10, -135], [60, 9, 0, 50, 4], [70, 3, 0, 55, -32]]);
+  assert.deepEqual(ms.map(m => instruction(m)), ['Doblá a la derecha', 'Doblá cerrado a la derecha', 'Doblá cerrado a la izquierda', 'Mantenete a la derecha', 'Doblá levemente a la izquierda']);
+});

@@ -52,6 +52,8 @@ export function classify(angle) {
   return 'uturn';
 }
 
+const CMD_TYPE = { 2: ['turn', -1], 3: ['slight', -1], 4: ['sharp', -1], 5: ['turn', 1], 6: ['slight', 1], 7: ['sharp', 1], 8: ['keep', -1], 9: ['keep', 1] };
+
 // hints: voicehints de BRouter [[índice, comando, salida de rotonda, ...], ...]. Sin hints, detección geométrica.
 export function buildManeuvers(coords, hints) {
   if (!coords || coords.length < 3) return [];
@@ -59,9 +61,14 @@ export function buildManeuvers(coords, hints) {
   const n = coords.length;
   let cands = [];
   if (Array.isArray(hints) && hints.length) {
+    // [índice, comando, salida de rotonda, distancia al siguiente, ángulo (+ derecha)]
+    // Comandos de BRouter verificados: 1 seguir, 2 izq., 3 leve izq., 4 cerrado izq.,
+    // 5 der., 6 leve der., 7 cerrado der., 8 mantener izq., 9 mantener der.
     for (const h of hints) {
-      const i = Number(h[0]);
-      if (Number.isInteger(i) && i > 0 && i < n - 1) cands.push({ i, exit: Number(h[2]) || 0, span: 20 });
+      const i = Number(h[0]), cmd = Number(h[1]), exit = Number(h[2]) || 0, ang = Number(h[4]);
+      if (!Number.isInteger(i) || i <= 0 || i >= n - 1) continue;
+      if (cmd === 1 && !exit) continue;
+      cands.push({ i, exit, span: 20, cmd, angle: Number.isFinite(ang) ? ang : null });
     }
   }
   if (!cands.length) {
@@ -78,8 +85,11 @@ export function buildManeuvers(coords, hints) {
   }
   const out = [];
   for (const c of cands) {
-    const angle = turnAngle(coords, cum, c.i, c.span);
-    const type = c.exit > 0 ? 'roundabout' : classify(angle);
+    let angle = c.angle ?? turnAngle(coords, cum, c.i, c.span);
+    const byCmd = CMD_TYPE[c.cmd];
+    const type = c.exit > 0 ? 'roundabout' : byCmd ? byCmd[0] : classify(angle);
+    // el lado lo manda el comando de BRouter si lo hay
+    if (byCmd && Math.sign(angle) !== byCmd[1]) angle = byCmd[1] * Math.max(20, Math.abs(angle));
     if (type === 'straight') continue;
     const m = { i: c.i, d: Math.round(cum[c.i]), angle: Math.round(angle), type, exit: c.exit };
     const prev = out[out.length - 1];
