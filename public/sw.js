@@ -1,12 +1,12 @@
 // Service worker: app usable sin conexión + caché de mapas y rutas.
-const VERSION = 'pedal-v4';
+const VERSION = 'pedal-v5';
 const SHELL = [
   '/', '/index.html', '/styles.css', '/manifest.webmanifest',
   '/js/app.js', '/js/util.js', '/js/store.js', '/js/routes.js', '/js/recorder.js', '/js/stats.js', '/js/gpx.js', '/js/share.js', '/js/native.js',
-  '/vendor/leaflet.js', '/vendor/leaflet.css', '/vendor/gifenc.esm.js',
+  '/vendor/capacitor.js', '/vendor/leaflet.js', '/vendor/leaflet.css', '/vendor/gifenc.esm.js',
   '/icons/icon-192.png', '/icons/icon-512.png', '/icons/apple-touch-icon.png',
 ];
-const TILE_HOSTS = /(tile-cyclosm\.openstreetmap\.fr|basemaps\.cartocdn\.com|tile\.waymarkedtrails\.org|fonts\.(googleapis|gstatic)\.com)$/;
+const TILE_HOSTS = /fonts\.(googleapis|gstatic)\.com$/;
 
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(VERSION).then(c => c.addAll(SHELL)).then(() => self.skipWaiting()));
@@ -30,7 +30,7 @@ self.addEventListener('fetch', (e) => {
   if (req.method !== 'GET') return;
   const url = new URL(req.url);
 
-  if (TILE_HOSTS.test(url.hostname)) {
+  if (TILE_HOSTS.test(url.hostname) || (url.origin === self.location.origin && url.pathname.startsWith('/tiles/'))) {
     e.respondWith((async () => {
       const c = await caches.open('tiles');
       const hit = await c.match(req);

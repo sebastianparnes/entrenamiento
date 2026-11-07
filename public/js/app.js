@@ -10,19 +10,20 @@ import {
 import { Recorder } from './recorder.js';
 import { computeStats, periodTotals, weeklySeries } from './stats.js';
 import { toGPX, parseGPX } from './gpx.js';
-import { isNative, APK_URL, currentBuild, latestBuild, openExternal, setupBackButton, minimizeApp } from './native.js';
+import { isNative, apiUrl, APK_URL, currentBuild, latestBuild, openExternal, setupBackButton, minimizeApp } from './native.js';
 
 const app = $('#app');
 const S = { home: DEFAULT_HOME, profile: 'trekking', voice: true, weather: null, wxAt: 0, generated: new Map(), maps: [] };
 
 // ======================= mapas =======================
+const tiles = (style) => apiUrl(`/tiles/${style}/{z}/{x}/{y}.png`);
 const BASES = {
-  'Ciclovías (CyclOSM)': () => L.tileLayer('https://{s}.tile-cyclosm.openstreetmap.fr/cyclosm/{z}/{x}/{y}.png', { subdomains: 'abc', maxZoom: 20, attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> · <a href="https://www.cyclosm.org">CyclOSM</a>' }),
-  'Claro': () => L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', { subdomains: 'abcd', maxZoom: 20, attribution: '© OpenStreetMap · © CARTO' }),
-  'Oscuro': () => L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { subdomains: 'abcd', maxZoom: 20, attribution: '© OpenStreetMap · © CARTO' }),
+  'Ciclovías (CyclOSM)': () => L.tileLayer(tiles('cyclosm'), { maxZoom: 20, attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> · <a href="https://www.cyclosm.org">CyclOSM</a>' }),
+  'Claro': () => L.tileLayer(tiles('light'), { maxZoom: 19, attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>' }),
+  'Oscuro': () => L.tileLayer(tiles('dark'), { maxZoom: 16, attribution: '© Esri · © OpenStreetMap' }),
 };
 const OVERLAYS = {
-  'Rutas ciclistas señalizadas': () => L.tileLayer('https://tile.waymarkedtrails.org/cycling/{z}/{x}/{y}.png', { maxZoom: 18, opacity: 0.8, attribution: '© <a href="https://cycling.waymarkedtrails.org">Waymarked Trails</a>' }),
+  'Rutas ciclistas señalizadas': () => L.tileLayer(tiles('bikeroutes'), { maxZoom: 18, opacity: 0.8, attribution: '© <a href="https://cycling.waymarkedtrails.org">Waymarked Trails</a>' }),
 };
 const CLS_COLOR = { bike: '#22c55e', calm: '#3b82f6', road: '#f97316' };
 

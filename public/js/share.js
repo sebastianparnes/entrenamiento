@@ -2,9 +2,11 @@
 import { GIFEncoder, quantize, applyPalette } from '../vendor/gifenc.esm.js';
 import { TYPES, fmtKm, fmtDuration, fmtPace, fmtNum, fmtDate, simplify } from './util.js';
 import { speedSeries } from './stats.js';
+import { apiUrl } from './native.js';
 
 const TILE = 256;
-const TILE_URL = (z, x, y) => `https://${'abcd'[(x + y) % 4]}.basemaps.cartocdn.com/dark_all/${z}/${x}/${y}@2x.png`;
+const TILE_MAX_Z = 16;
+const TILE_URL = (z, x, y) => apiUrl(`/tiles/dark/${z}/${x}/${y}.png`);
 const tileCache = new Map();
 
 const project = (lat, lon, z) => {
@@ -37,7 +39,7 @@ export async function prepareScene(item, W, H) {
     const a = project(maxLat, minLon, zf), b = project(minLat, maxLon, zf);
     if (b[0] - a[0] <= box.w && b[1] - a[1] <= box.h) break;
   }
-  const zi = Math.min(18, Math.max(3, Math.floor(zf)));
+  const zi = Math.min(TILE_MAX_Z, Math.max(3, Math.floor(zf) + 1));
   const scale = 2 ** (zf - zi);
   const c = project((minLat + maxLat) / 2, (minLon + maxLon) / 2, zf);
   const origin = [c[0] - (box.x + box.w / 2), c[1] - (box.y + box.h / 2)]; // en px del zoom zf
@@ -160,7 +162,7 @@ function drawTexts(ctx, S, progress, u, accent) {
   ctx.fillStyle = accent; ctx.font = `900 ${28 * u}px Inter, system-ui, sans-serif`;
   ctx.fillText('PEDAL BA', 70 * u, H - 44 * u);
   ctx.fillStyle = '#6b737c'; ctx.font = `500 ${18 * u}px Inter, system-ui, sans-serif`;
-  const attr = '© OpenStreetMap · © CARTO';
+  const attr = '© OpenStreetMap · © Esri';
   ctx.fillText(attr, W - 70 * u - ctx.measureText(attr).width, H - 44 * u);
 }
 

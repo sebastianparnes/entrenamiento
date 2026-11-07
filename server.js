@@ -144,6 +144,59 @@ async function apiSync(req) {
   return run;
 }
 
+// ---------- teselas de mapa (proxy con caché en disco) ----------
+// Pasan por el servidor para no depender de claves ni de restricciones por origen
+// (la app de Android se sirve desde https://localhost) y para cachearlas.
+const TILE_SOURCES = {
+  cyclosm: { max: 20, url: (z, x, y) => `https://${'abc'[(x + y) % 3]}.tile-cyclosm.openstreetmap.fr/cyclosm/${z}/${x}/${y}.png` },
+  light:   { max: 19, url: (z, x, y) => `https://tile.openstreetmap.org/${z}/${x}/${y}.png` },
+  dark:    { max: 16, url: (z, x, y) => `https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/${z}/${y}/${x}` },
+  bikeroutes: { max: 18, url: (z, x, y) => `https://tile.waymarkedtrails.org/cycling/${z}/${x}/${y}.png` },
+};
+const TILE_DIR = path.join(DATA_DIR, 'tiles');
+const TILE_TTL = 30 * 86400e3;
+const tileInflight = new Map();
+
+async function fetchTile(style, z, x, y) {
+  const src = TILE_SOURCES[style];
+  const file = path.join(TILE_DIR, style, String(z), String(x), `${y}.bin`);
+  try {
+    const st = await stat(file);
+    if (Date.now() - st.mtimeMs < TILE_TTL) {
+      const buf = await readFile(file);
+      const type = buf[0] === 0xff ? 'image/jpeg' : 'image/png';
+      return { buf, type };
+    }
+  } catch {}
+  const key = `${style}/${z}/${x}/${y}`;
+  if (tileInflight.has(key)) return tileInflight.get(key);
+  const job = (async () => {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 15000);
+    try {
+      const r = await fetch(src.url(z, x, y), { headers: { 'User-Agent': UA, Referer: 'https://pedal-ba-production.up.railway.app/' }, signal: ctrl.signal });
+      if (!r.ok) throw Object.assign(new Error(`Tesela ${r.status}`), { status: r.status === 404 ? 404 : 502 });
+      const buf = Buffer.from(await r.arrayBuffer());
+      const type = r.headers.get('content-type') || 'image/png';
+      mkdir(path.dirname(file), { recursive: true }).then(() => writeFile(file, buf)).catch(() => {});
+      return { buf, type };
+    } finally { clearTimeout(timer); tileInflight.delete(key); }
+  })();
+  tileInflight.set(key, job);
+  return job;
+}
+
+async function serveTile(res, m) {
+  const [, style, zs, xs, ys] = m;
+  const z = Number(zs), x = Number(xs), y = Number(ys);
+  const src = TILE_SOURCES[style];
+  const n = 2 ** z;
+  if (!src || z < 0 || z > src.max || x < 0 || y < 0 || x >= n || y >= n) return send(res, 404, 'Tesela inexistente');
+  const { buf, type } = await fetchTile(style, z, x, y);
+  res.writeHead(200, { 'Content-Type': type, 'Cache-Control': 'public, max-age=604800', 'Access-Control-Allow-Origin': '*' });
+  res.end(buf);
+}
+
 // ---------- estáticos ----------
 async function serveStatic(req, res, pathname) {
   let rel = decodeURIComponent(pathname);
@@ -187,6 +240,8 @@ const server = http.createServer(async (req, res) => {
       if (req.method !== 'POST') return send(res, 405, { error: 'Usar POST' });
       return send(res, 200, await apiSync(req));
     }
+    const tm = p.match(/^\/tiles\/([a-z]+)\/(\d+)\/(\d+)\/(\d+)\.png$/);
+    if (tm) return await serveTile(res, tm);
     if (p.startsWith('/api/')) return send(res, 404, { error: 'No existe' });
     return serveStatic(req, res, p);
   } catch (e) {
