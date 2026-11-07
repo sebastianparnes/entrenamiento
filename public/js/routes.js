@@ -73,7 +73,7 @@ export function routePoints(route, home) {
 export async function computeRoute(route, home, profile = 'trekking', { force = false } = {}) {
   const pts = route.coords && !route.waypoints ? null : routePoints(route, home);
   if (!pts) return { coords: route.coords, spans: route.spans || [{ from: 0, to: route.coords.length - 1, cls: 'road' }], distanceKm: route.distanceKm, ascentM: route.ascentM || 0, share: route.share || null };
-  const key = `route:${route.id}:${profile}:${homeKey(home)}:${hashWps(route.waypoints)}`;
+  const key = `route2:${route.id}:${profile}:${homeKey(home)}:${hashWps(route.waypoints)}`;
   if (!force) {
     const c = await get('kv', key);
     if (c && Date.now() - c.value.t < 30 * 86400e3) return c.value.data;
@@ -86,7 +86,7 @@ export async function computeRoute(route, home, profile = 'trekking', { force = 
 
 export async function cachedRoute(route, home, profile = 'trekking') {
   if (route.coords && !route.waypoints) return { coords: route.coords, distanceKm: route.distanceKm, share: route.share || null };
-  const key = `route:${route.id}:${profile}:${homeKey(home)}:${hashWps(route.waypoints)}`;
+  const key = `route2:${route.id}:${profile}:${homeKey(home)}:${hashWps(route.waypoints)}`;
   const c = await get('kv', key);
   return c ? c.value.data : null;
 }

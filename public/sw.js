@@ -1,8 +1,8 @@
 // Service worker: app usable sin conexión + caché de mapas y rutas.
-const VERSION = 'pedal-v5';
+const VERSION = 'pedal-v6';
 const SHELL = [
   '/', '/index.html', '/styles.css', '/manifest.webmanifest',
-  '/js/app.js', '/js/util.js', '/js/store.js', '/js/routes.js', '/js/recorder.js', '/js/stats.js', '/js/gpx.js', '/js/share.js', '/js/native.js',
+  '/js/app.js', '/js/util.js', '/js/store.js', '/js/routes.js', '/js/recorder.js', '/js/stats.js', '/js/gpx.js', '/js/share.js', '/js/native.js', '/js/nav.js', '/js/maneuvers.js',
   '/vendor/capacitor.js', '/vendor/leaflet.js', '/vendor/leaflet.css', '/vendor/gifenc.esm.js',
   '/icons/icon-192.png', '/icons/icon-512.png', '/icons/apple-touch-icon.png',
 ];

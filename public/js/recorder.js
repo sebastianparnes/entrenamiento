@@ -1,19 +1,20 @@
 // Grabación GPS. Funciona con la app abierta: el wake lock mantiene la
 // pantalla prendida para que el navegador no corte el GPS.
 import { distM, fmtPace, fmtNum } from './util.js';
-import { isNative, plugin, speak, ensureNotificationPermission } from './native.js';
+import { isNative, plugin, speak, ensureNotificationPermission, keepScreenOn } from './native.js';
 
 const LIVE_KEY = 'pedal-live-v1';
 
 export class Recorder {
-  constructor({ type, routeId = null, onUpdate, voice = true }) {
-    this.type = type; this.routeId = routeId; this.onUpdate = onUpdate; this.voice = voice;
+  constructor({ type, routeId = null, onUpdate, voice = true, keepScreen = true }) {
+    this.type = type; this.routeId = routeId; this.onUpdate = onUpdate; this.voice = voice; this.keepScreen = keepScreen;
+    this.onFix = null;
     this.points = [];         // [lat, lon, tSec, ele]
     this.startedAt = null;
     this.pausedMs = 0; this.pauseStart = null;
     this.distM = 0; this.lastFix = null; this.accuracy = null; this.curKmh = 0;
     this.nextKm = 1; this.watchId = null; this.wakeLock = null; this.state = 'idle';
-    this._vis = () => { if (document.visibilityState === 'visible' && this.state === 'running') { if (!isNative) this.lock(); this.emit(); } };
+    this._vis = () => { if (document.visibilityState === 'visible' && this.state === 'running') this.emit(); };
   }
 
   static pending() {
@@ -65,7 +66,7 @@ export class Recorder {
       this.watchId = navigator.geolocation.watchPosition(p => this.onPos(p), e => this.onErr(e), { enableHighAccuracy: true, maximumAge: 0, timeout: 30000 });
     }
     document.addEventListener('visibilitychange', this._vis);
-    if (!isNative) await this.lock();
+    if (this.keepScreen) await keepScreenOn(true);
     this.tick = setInterval(() => this.emit(), 1000);
     this.emit();
   }
@@ -86,14 +87,10 @@ export class Recorder {
     this.clearWatchers();
     clearInterval(this.tick);
     document.removeEventListener('visibilitychange', this._vis);
-    try { await this.wakeLock?.release(); } catch {}
+    await keepScreenOn(false);
     if (this.pauseStart) { this.pausedMs += Date.now() - this.pauseStart; this.pauseStart = null; }
     this.state = 'stopped';
     Recorder.clearPending();
-  }
-
-  async lock() {
-    try { if ('wakeLock' in navigator) this.wakeLock = await navigator.wakeLock.request('screen'); } catch {}
   }
 
   onErr(e) { this.error = e.code === 1 ? 'Sin permiso de ubicación. Habilitalo en el navegador.' : 'Buscando señal GPS…'; this.emit(); }
@@ -113,6 +110,7 @@ export class Recorder {
       if (kmh > maxKmh) { this.emit(); return; }               // salto imposible
       if (d < Math.max(3, accuracy * 0.4)) {                    // quieto: no sumamos ruido
         this.curKmh = speed != null && speed >= 0 ? speed * 3.6 : 0;
+        this.onFix?.(lat, lon, this.curKmh);
         this.emit(); return;
       }
       this.distM += d;
@@ -123,6 +121,7 @@ export class Recorder {
     this.points.push([p[0], p[1], p[2], p[3]]);
     if (this.points.length % 5 === 0) this.persist();
     this.announce();
+    this.onFix?.(lat, lon, this.curKmh);
     this.emit();
   }
 
@@ -134,7 +133,7 @@ export class Recorder {
       ? `Kilómetro ${this.nextKm}. Promedio ${fmtNum(km / (el / 3600), 1)} kilómetros por hora.`
       : `Kilómetro ${this.nextKm}. Ritmo ${fmtPace(km, el).replace(':', ' minutos ')} segundos por kilómetro.`;
     this.nextKm = Math.floor(km) + 1;
-    if (this.voice) speak(msg);
+    if (this.voice) speak(msg, { flush: false });
     if (navigator.vibrate) navigator.vibrate([120, 80, 120]);
   }
 

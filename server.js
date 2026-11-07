@@ -72,11 +72,12 @@ async function apiRoute(q) {
   if (pts.length < 2 || pts.length > 30) throw Object.assign(new Error('Necesito entre 2 y 30 puntos'), { status: 400 });
   const profile = PROFILES.has(q.get('profile')) ? q.get('profile') : 'trekking';
   const lonlats = pts.map(([lon, lat]) => `${lon.toFixed(6)},${lat.toFixed(6)}`).join('|');
-  const key = `route:${profile}:${lonlats}`;
+  const debug = q.get('debug') === '1';
+  const key = `route2:${profile}:${debug ? 'dbg:' : ''}${lonlats}`;
   const hit = cached(key, 6 * 3600e3); if (hit) return hit;
-  const url = `${BROUTER}?lonlats=${lonlats}&profile=${profile}&alternativeidx=0&format=geojson`;
+  const url = `${BROUTER}?lonlats=${lonlats}&profile=${profile}&alternativeidx=0&format=geojson&turnInstructionMode=1`;
   const gj = await fetchJson(url, { timeout: 40000 });
-  return store(key, analyzeBrouter(gj));
+  return store(key, analyzeBrouter(gj, { debug }));
 }
 
 // ---------- API: clima ----------

@@ -10,10 +10,12 @@ import {
 import { Recorder } from './recorder.js';
 import { computeStats, periodTotals, weeklySeries } from './stats.js';
 import { toGPX, parseGPX } from './gpx.js';
-import { isNative, apiUrl, APK_URL, currentBuild, latestBuild, openExternal, setupBackButton, minimizeApp } from './native.js';
+import { Navigator, arrowSvg } from './nav.js';
+import { spokenDistance } from './maneuvers.js';
+import { isNative, apiUrl, speak, APK_URL, currentBuild, latestBuild, openExternal, setupBackButton, minimizeApp } from './native.js';
 
 const app = $('#app');
-const S = { home: DEFAULT_HOME, profile: 'trekking', voice: true, weather: null, wxAt: 0, generated: new Map(), maps: [] };
+const S = { home: DEFAULT_HOME, profile: 'trekking', voice: true, keepScreen: true, weather: null, wxAt: 0, generated: new Map(), maps: [] };
 
 // ======================= mapas =======================
 const tiles = (style) => apiUrl(`/tiles/${style}/{z}/{x}/{y}.png`);
@@ -336,7 +338,7 @@ async function viewRuta(id) {
       data.share?.unpaved > 0.05 ? h('div', { class: 'notice', style: { marginTop: '10px' } }, `${Math.round(data.share.unpaved * 100)}% sin asfaltar según OpenStreetMap.`) : ''),
     windTxt ? h('div', { class: 'card small' }, '🌬️ ', windTxt) : '',
     r.tips ? h('div', { class: 'card small' }, '💡 ', r.tips) : '',
-    h('a', { class: 'btn primary block', href: `#/grabar?route=${encodeURIComponent(r.id)}`, style: { marginBottom: '8px' } }, '● Grabar siguiendo esta ruta'),
+    h('a', { class: 'btn primary block', href: `#/grabar?route=${encodeURIComponent(r.id)}`, style: { marginBottom: '8px' } }, '🧭 Navegar y grabar esta ruta'),
     h('div', { class: 'btn-row three' },
       h('a', { class: 'btn', href: googleMapsLink(data.coords.map(c => [c[0], c[1]])), target: '_blank', rel: 'noopener' }, 'Google Maps'),
       h('button', { class: 'btn', onclick: () => download(new Blob([toGPX({ name: r.name, points: data.coords.map(c => [c[0], c[1], null, c[2]]) })], { type: 'application/gpx+xml' }), `${slug(r.name)}.gpx`) }, 'GPX'),
@@ -356,7 +358,7 @@ async function viewGrabar(params) {
       h('div', { class: 'page-title' }, h('h1', {}, 'Grabación pendiente')),
       h('div', { class: 'card' },
         h('p', {}, `${typeLabel(pending.type)} empezada a las ${fmtTime(pending.startedAt)} con ${pending.points.length} puntos GPS.`),
-        h('button', { class: 'btn primary block', onclick: () => { const r = new Recorder({ type: pending.type }); r.restore(pending); startLive(r, pending.routeId); } }, '▶ Seguir grabando'),
+        h('button', { class: 'btn primary block', onclick: () => { const r = new Recorder({ type: pending.type, voice: S.voice, keepScreen: S.keepScreen }); r.restore(pending); startLive(r, pending.routeId); } }, '▶ Seguir grabando'),
         h('button', { class: 'btn block', style: { marginTop: '8px' }, onclick: async () => { const r = new Recorder({ type: pending.type }); r.restore(pending); await finishRecording(r); } }, '✓ Guardarla así'),
         h('button', { class: 'btn danger block', style: { marginTop: '8px' }, onclick: () => { if (confirm('¿Descartar la grabación?')) { Recorder.clearPending(); viewGrabar(params); } } }, 'Descartar')));
     return;
@@ -377,13 +379,17 @@ async function viewGrabar(params) {
     if (type === 'cinta') { body.replaceChildren(manualForm('cinta')); return; }
     const voice = h('input', { type: 'checkbox', checked: S.voice });
     voice.addEventListener('change', () => { S.voice = voice.checked; store.setSetting('voice', voice.checked); });
+    const awake = h('input', { type: 'checkbox', checked: S.keepScreen });
+    awake.addEventListener('change', () => { S.keepScreen = awake.checked; store.setSetting('keepScreen', awake.checked); });
     body.replaceChildren(
-      route ? h('div', { class: 'card small' }, '🗺️ Siguiendo: ', h('b', {}, route.name), ' ', h('a', { href: '#/grabar' }, 'quitar')) : '',
+      route ? h('div', { class: 'card small' }, '🧭 Navegando: ', h('b', {}, route.name), ' ', h('a', { href: '#/grabar' }, 'quitar')) : '',
       isNative
         ? h('div', { class: 'card small', style: { margin: '12px 0' } }, '📍 Podés bloquear el celu o usar otras apps: el GPS sigue grabando y vas a ver una notificación fija mientras dure la actividad.')
         : h('div', { class: 'notice', style: { margin: '12px 0' } }, 'Dejá la app abierta con la pantalla prendida (la mantengo encendida yo). Si bloqueás el celu o cambiás de app, el navegador corta el GPS y ese tramo queda en línea recta. La app de Android no tiene esta limitación (Más → App Android).'),
-      h('label', { class: 'row small', style: { margin: '6px 2px 14px' } }, voice, 'Avisos por voz en cada kilómetro'),
-      h('button', { class: 'btn primary block', style: { padding: '18px', fontSize: '17px' }, onclick: () => startLive(new Recorder({ type, routeId, voice: S.voice }), routeId) }, `▶ Empezar ${TYPES[type].label.toLowerCase()}`),
+      h('label', { class: 'row small', style: { margin: '6px 2px 8px' } }, voice, route ? 'Voz: indicaciones de giro y aviso en cada km' : 'Voz: aviso en cada kilómetro'),
+      h('label', { class: 'row small', style: { margin: '0 2px 14px' } }, awake, 'Mantener la pantalla encendida mientras grabo'),
+      route ? '' : h('div', { class: 'muted tiny', style: { margin: '-6px 2px 14px' } }, 'Para tener indicaciones de giro, elegí una ruta en la pestaña Rutas y tocá “Navegar y grabar”.'),
+      h('button', { class: 'btn primary block', style: { padding: '18px', fontSize: '17px' }, onclick: () => startLive(new Recorder({ type, routeId, voice: S.voice, keepScreen: S.keepScreen }), routeId) }, route ? `▶ Navegar y grabar` : `▶ Empezar ${TYPES[type].label.toLowerCase()}`),
       h('details', { style: { marginTop: '18px' } }, h('summary', { class: 'muted small' }, 'Me olvidé de grabar: cargar a mano'), h('div', { style: { marginTop: '10px' } }, manualForm(type))),
     );
   };
@@ -432,7 +438,15 @@ async function startLive(rec, routeId) {
   const status = h('div', { class: 'live-status' }, h('span', { class: 'gps-dot' }), h('span', {}, 'Buscando GPS…'));
   const pauseBtn = h('button', { class: 'btn' }, '⏸ Pausa');
   const stopBtn = h('button', { class: 'btn primary' }, '■ Terminar');
-  const live = h('div', { class: 'live' }, mapEl,
+  const navArrow = h('div', { class: 'nav-arrow' }), navDist = h('div', { class: 'nav-dist' }), navText = h('div', { class: 'nav-text' });
+  const navBanner = h('div', { class: 'nav-banner', style: { display: 'none' } }, navArrow, h('div', { class: 'grow' }, navDist, navText));
+  const muteBtn = h('button', { class: 'nav-mute', 'aria-label': 'Sonido', onclick: () => {
+    rec.voice = !rec.voice; S.voice = rec.voice; store.setSetting('voice', rec.voice);
+    muteBtn.textContent = rec.voice ? '🔊' : '🔇';
+    toast(rec.voice ? 'Voz activada' : 'Voz silenciada');
+    if (rec.voice) speak('Voz activada.');
+  } }, rec.voice ? '🔊' : '🔇');
+  const live = h('div', { class: 'live' }, navBanner, mapEl,
     h('div', { class: 'live-panel' }, status,
       h('div', { class: 'live-main' },
         h('div', {}, v.time, h('div', { class: 'l' }, 'tiempo')),
@@ -445,17 +459,48 @@ async function startLive(rec, routeId) {
 
   const map = L.map(mapEl, { zoomControl: false }).setView([S.home.lat, S.home.lon], 16);
   BASES['Claro']().addTo(map);
+  let nav = null;
   if (routeId) {
     const r = findRoute(routeId) || (await store.get('routes', routeId));
-    if (r) { try { drawRoute(map, await computeRoute(r, S.home, S.profile), { fit: false }); } catch {} }
+    if (r) {
+      try {
+        const data = await computeRoute(r, S.home, S.profile);
+        drawRoute(map, data, { fit: false });
+        nav = new Navigator(data, { mode: rec.type === 'bici' ? 'bici' : 'pie', say: (t) => { if (rec.voice) speak(t, { flush: true }); } });
+        navBanner.style.display = '';
+        navDist.textContent = 'Buscando GPS…';
+        navText.textContent = r.name;
+      } catch (e) { toast('No pude cargar la ruta para navegar'); }
+    }
   }
+  const paintNav = (st) => {
+    if (!st) return;
+    navBanner.classList.toggle('off', !!st.off);
+    if (st.off) {
+      navArrow.innerHTML = '<svg viewBox="0 0 48 48"><path d="M24 6L44 42H4z" fill="currentColor"/><path d="M24 18v12M24 35v2" stroke="#000" stroke-width="4" stroke-linecap="round"/></svg>';
+      navDist.textContent = Number.isFinite(st.offDist) ? `A ${spokenDistance(st.offDist)}` : 'Fuera de ruta';
+      navText.textContent = st.along ? 'Te saliste de la ruta' : 'Andá hasta el inicio de la ruta';
+      return;
+    }
+    if (!st.next) return;
+    navArrow.innerHTML = arrowSvg(st.next);
+    navDist.textContent = st.dist >= 1000 ? `${fmtNum(st.dist / 1000, 1)} km` : `${Math.max(0, Math.round(st.dist / 10) * 10)} m`;
+    navText.textContent = st.text + (st.total ? ` · faltan ${fmtNum(Math.max(0, st.total - st.along) / 1000, 1)} km` : '');
+  };
+  rec.onFix = (lat, lon, kmh) => { if (nav && rec.state === 'running') paintNav(nav.update(lat, lon, kmh)); };
   const line = L.polyline(rec.points.map(p => [p[0], p[1]]), { color: T.color === '#c6f432' ? '#65a30d' : T.color, weight: 6 }).addTo(map);
   const me = L.marker([S.home.lat, S.home.lon], { icon: L.divIcon({ className: '', html: '<div class="me-dot"></div>', iconSize: [18, 18], iconAnchor: [9, 9] }) }).addTo(map);
   let follow = true;
   map.on('dragstart', () => { follow = false; });
-  const recenter = L.control({ position: 'topright' });
-  recenter.onAdd = () => { const b = h('button', { class: 'icon-btn', style: { background: '#fff', color: '#000' }, onclick: (e) => { e.stopPropagation(); follow = true; if (rec.lastFix) map.setView([rec.lastFix[0], rec.lastFix[1]], 16); } }, '◎'); return b; };
-  recenter.addTo(map);
+  const ctrls = L.control({ position: 'bottomright' });
+  ctrls.onAdd = () => {
+    const box = h('div', { class: 'live-ctrls' },
+      muteBtn,
+      h('button', { class: 'nav-mute', 'aria-label': 'Centrar', onclick: (e) => { e.stopPropagation(); follow = true; const p = rec.points[rec.points.length - 1]; if (p) map.setView([p[0], p[1]], nav ? 17 : 16); } }, '◎'));
+    L.DomEvent.disableClickPropagation(box);
+    return box;
+  };
+  ctrls.addTo(map);
 
   let lastN = rec.points.length;
   rec.onUpdate = (r) => {
@@ -471,7 +516,7 @@ async function startLive(rec, routeId) {
       lastN = r.points.length;
       const p = r.points[r.points.length - 1];
       line.addLatLng([p[0], p[1]]); me.setLatLng([p[0], p[1]]);
-      if (follow) map.setView([p[0], p[1]], map.getZoom() < 14 ? 16 : map.getZoom(), { animate: true });
+      if (follow) map.setView([p[0], p[1]], map.getZoom() < 14 ? (nav ? 17 : 16) : map.getZoom(), { animate: true });
     }
   };
   pauseBtn.onclick = async () => {
@@ -666,6 +711,8 @@ async function viewMas() {
 
   const voice = h('input', { type: 'checkbox', checked: S.voice });
   voice.addEventListener('change', () => { S.voice = voice.checked; store.setSetting('voice', voice.checked); });
+  const awakeIn = h('input', { type: 'checkbox', checked: S.keepScreen });
+  awakeIn.addEventListener('change', () => { S.keepScreen = awakeIn.checked; store.setSetting('keepScreen', awakeIn.checked); });
 
   app.replaceChildren(
     h('div', { class: 'page-title' }, h('h1', {}, 'Más')),
@@ -686,7 +733,12 @@ async function viewMas() {
       syncStatus),
     androidCard(),
     h('div', { class: 'card' }, h('h3', {}, '⚙️ Preferencias'),
-      h('label', { class: 'row small', style: { marginTop: '10px' } }, voice, 'Avisos por voz cada kilómetro al grabar')),
+      h('label', { class: 'row small', style: { marginTop: '10px' } }, voice, 'Voz al grabar (giros y kilómetros)'),
+      h('label', { class: 'row small', style: { marginTop: '10px' } }, awakeIn, 'Pantalla siempre encendida mientras grabo'),
+      h('button', { class: 'btn block', style: { marginTop: '12px' }, onclick: async () => {
+        const ok = await speak('En 200 metros, doblá a la derecha.');
+        if (!ok) toast('No encontré una voz en el celular. Instalá “Servicios de voz de Google” desde Play Store.');
+      } }, '🔊 Probar la voz')),
     h('div', { class: 'card' }, h('h3', {}, '📦 Datos'),
       h('div', { class: 'stack', style: { marginTop: '10px' } },
         h('button', { class: 'btn block', onclick: () => pickFile('.json,application/json', async (text) => {
@@ -776,6 +828,7 @@ async function boot() {
   S.home = await store.getSetting('home', null) || DEFAULT_HOME;
   S.profile = await store.getSetting('profile', 'trekking');
   S.voice = await store.getSetting('voice', true);
+  S.keepScreen = await store.getSetting('keepScreen', true);
 
   // Migración desde el Training Log viejo (GitHub Pages) vía #legacy=<base64>
   if (location.hash.startsWith('#legacy=')) {

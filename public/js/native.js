@@ -2,7 +2,7 @@
 
 const C = window.Capacitor;
 export const isNative = Boolean(C?.isNativePlatform?.());
-export const API_BASE = isNative ? 'https://pedal-ba-production.up.railway.app' : '';
+export const API_BASE = isNative ? (window.PEDAL_API_BASE || 'https://pedal-ba-production.up.railway.app') : '';
 export const apiUrl = (path) => API_BASE + path;
 export const REPO = 'sebastianparnes/entrenamiento';
 export const APK_URL = `https://github.com/${REPO}/releases/latest/download/pedal-ba.apk`;
@@ -13,12 +13,46 @@ export function plugin(name) {
   return (cache[name] ||= C.registerPlugin(name));
 }
 
-export async function speak(text) {
+// Voz. flush=true corta lo que se esté diciendo (instrucciones de navegación);
+// flush=false lo encola (avisos de kilómetro).
+const LANGS = ['es-AR', 'es-US', 'es-419', 'es-ES', 'es'];
+let ttsLang = null;
+export async function speak(text, { flush = true } = {}) {
   if (isNative) {
-    try { await plugin('TextToSpeech').speak({ text, lang: 'es-AR', rate: 1.0, category: 'playback' }); return; } catch {}
+    const TTS = plugin('TextToSpeech');
+    const tries = ttsLang ? [ttsLang] : LANGS;
+    for (const lang of tries) {
+      try { await TTS.speak({ text, lang, rate: 1.0, volume: 1.0, queueStrategy: flush ? 0 : 1 }); ttsLang = lang; return true; }
+      catch (e) { if (!/language/i.test(e?.message || '')) { ttsLang = ttsLang || lang; return false; } }
+    }
+    try { await TTS.speak({ text, rate: 1.0, queueStrategy: flush ? 0 : 1 }); return true; } catch { return false; }
   }
-  if ('speechSynthesis' in window) { const u = new SpeechSynthesisUtterance(text); u.lang = 'es-AR'; speechSynthesis.speak(u); }
+  if ('speechSynthesis' in window) {
+    if (flush) speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(text); u.lang = 'es-AR';
+    const v = speechSynthesis.getVoices().find(x => x.lang?.startsWith('es'));
+    if (v) u.voice = v;
+    speechSynthesis.speak(u);
+    return true;
+  }
+  return false;
 }
+
+// Pantalla siempre encendida mientras grabás
+let wakeSentinel = null, wantAwake = false;
+export async function keepScreenOn(on) {
+  wantAwake = on;
+  if (isNative) {
+    try { const K = plugin('KeepAwake'); on ? await K.keepAwake() : await K.allowSleep(); } catch {}
+    return;
+  }
+  try {
+    if (on && 'wakeLock' in navigator) wakeSentinel = await navigator.wakeLock.request('screen');
+    else if (!on) { await wakeSentinel?.release(); wakeSentinel = null; }
+  } catch {}
+}
+// el navegador suelta el wake lock al cambiar de pestaña: lo recuperamos al volver
+document.addEventListener('visibilitychange', () => { if (!isNative && wantAwake && document.visibilityState === 'visible') keepScreenOn(true); });
 
 export async function ensureNotificationPermission() {
   if (!isNative) return;
