@@ -167,3 +167,26 @@ nav.tabs a.rec .i { width: 54px; height: 54px; border-radius: 50%; background: v
 .nav-text { font-size: 16px; font-weight: 650; opacity: .95; }
 .live-ctrls { display: flex; flex-direction: column; gap: 10px; }
 .nav-mute { width: 48px; height: 48px; border-radius: 50%; border: 0; background: #fff; color: #000; font-size: 20px; box-shadow: 0 4px 12px rgba(0,0,0,.35); cursor: pointer; }
+
+/* lugares: Ir a… */
+.places { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 8px; margin-bottom: 6px; }
+.place { border: 1px solid var(--line); background: var(--surface); border-radius: 14px; padding: 10px 6px; display: flex; flex-direction: column; align-items: center; gap: 2px; cursor: pointer; }
+.place:active { transform: scale(.97); }
+.place .pe { font-size: 24px; line-height: 1.1; }
+.place .pn { font-weight: 750; font-size: 14px; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.place .ps { font-size: 11px; color: var(--accent); font-weight: 700; }
+.place.unset .ps, .place.add .ps { color: var(--muted); }
+.place.add { border-style: dashed; }
+.chip.on { border-color: var(--accent); background: #1d2410; }
+button.chip { cursor: pointer; font-size: 18px; }
+
+/* panel en vivo: velocidad y km grandes */
+.live-hero { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 14px; align-items: end; }
+.live-hero .hv { font-size: clamp(56px, 19vw, 100px); font-weight: 900; line-height: .95; font-variant-numeric: tabular-nums; letter-spacing: -0.03em; }
+.live-hero .hv.speed { color: var(--accent); }
+.live-hero .hl { color: var(--muted); font-size: 14px; font-weight: 650; margin-top: 2px; }
+.live-sub { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--line); }
+.live-sub .v { font-size: 22px; font-weight: 800; font-variant-numeric: tabular-nums; }
+.live-sub .l { color: var(--muted); font-size: 12px; }
+.btn.pulse { animation: pulse 1.2s infinite; }
+@keyframes pulse { 50% { box-shadow: 0 0 0 8px rgba(198,244,50,.25); } }

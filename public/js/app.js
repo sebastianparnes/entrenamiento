@@ -12,7 +12,7 @@ import { computeStats, periodTotals, weeklySeries } from './stats.js';
 import { toGPX, parseGPX } from './gpx.js';
 import { Navigator, arrowSvg } from './nav.js';
 import { spokenDistance } from './maneuvers.js';
-import { isNative, apiUrl, speak, APK_URL, currentBuild, latestBuild, openExternal, setupBackButton, minimizeApp } from './native.js';
+import { isNative, apiUrl, speak, plugin, APK_URL, currentBuild, latestBuild, openExternal, setupBackButton, minimizeApp } from './native.js';
 
 const app = $('#app');
 const S = { home: DEFAULT_HOME, profile: 'trekking', voice: true, keepScreen: true, weather: null, wxAt: 0, generated: new Map(), maps: [] };
@@ -160,6 +160,7 @@ async function viewHoy() {
       h('div', { class: 'sub' }, '🏠 ', S.home.label.split(',')[0])),
     pending ? h('div', { class: 'card tap', style: { borderColor: 'var(--warn)' }, onclick: () => go('#/grabar') },
       h('b', {}, '⏸ Tenés una grabación sin terminar'), h('div', { class: 'muted small' }, 'Tocá para seguirla o guardarla')) : '',
+    placesBar(),
     wxCard, recoCard,
     sectionH('Esta semana', h('a', { href: '#/historial', class: 'small' }, 'Ver todo')),
     h('div', { class: 'card' },
@@ -253,6 +254,8 @@ async function viewRutas() {
 
   app.replaceChildren(
     h('div', { class: 'page-title' }, h('h1', {}, 'Rutas'), h('div', { class: 'sub' }, '25–30 km desde casa')),
+    placesBar(),
+    sectionH('Rutas para entrenar'),
     seg, h('div', { class: 'muted tiny', style: { margin: '6px 2px 12px' } }, PROFILES[S.profile].hint),
     listEl,
     sectionH('A medida'), genCard,
@@ -434,7 +437,8 @@ async function startLive(rec, routeId) {
   REC = rec;
   const T = TYPES[rec.type];
   const mapEl = h('div', { class: 'map' });
-  const v = { time: h('div', { class: 'v' }, '0:00'), dist: h('div', { class: 'v' }, '0,00'), a: h('div', { class: 'v sm' }, '—'), b: h('div', { class: 'v sm' }, '—') };
+  const v = { time: h('div', { class: 'v' }, '0:00'), dist: h('div', { class: 'hv' }, '0,00'), a: h('div', { class: 'hv speed' }, '0'), b: h('div', { class: 'v' }, '—'), left: h('div', { class: 'v' }, '—') };
+  const leftCell = h('div', { style: { display: 'none' } }, v.left, h('div', { class: 'l' }, 'km que faltan'));
   const status = h('div', { class: 'live-status' }, h('span', { class: 'gps-dot' }), h('span', {}, 'Buscando GPS…'));
   const pauseBtn = h('button', { class: 'btn' }, '⏸ Pausa');
   const stopBtn = h('button', { class: 'btn primary' }, '■ Terminar');
@@ -448,11 +452,13 @@ async function startLive(rec, routeId) {
   } }, rec.voice ? '🔊' : '🔇');
   const live = h('div', { class: 'live' }, navBanner, mapEl,
     h('div', { class: 'live-panel' }, status,
-      h('div', { class: 'live-main' },
+      h('div', { class: 'live-hero' },
+        h('div', {}, v.a, h('div', { class: 'hl' }, T.speed ? 'km/h' : 'min/km ahora')),
+        h('div', {}, v.dist, h('div', { class: 'hl' }, 'km recorridos'))),
+      h('div', { class: 'live-sub' },
         h('div', {}, v.time, h('div', { class: 'l' }, 'tiempo')),
-        h('div', {}, v.dist, h('div', { class: 'l' }, 'km')),
-        h('div', {}, v.a, h('div', { class: 'l' }, T.speed ? 'km/h ahora' : 'ritmo /km')),
-        h('div', {}, v.b, h('div', { class: 'l' }, T.speed ? 'km/h promedio' : 'ritmo actual'))),
+        h('div', {}, v.b, h('div', { class: 'l' }, T.speed ? 'km/h prom.' : 'min/km prom.')),
+        leftCell),
       h('div', { class: 'btn-row' }, pauseBtn, stopBtn)));
   document.body.append(live);
   $('#tabs').style.display = 'none';
@@ -466,7 +472,9 @@ async function startLive(rec, routeId) {
       try {
         const data = await computeRoute(r, S.home, S.profile);
         drawRoute(map, data, { fit: false });
-        nav = new Navigator(data, { mode: rec.type === 'bici' ? 'bici' : 'pie', say: (t) => { if (rec.voice) speak(t, { flush: true }); } });
+        nav = new Navigator(data, { mode: rec.type === 'bici' ? 'bici' : 'pie', destName: r.destName || '', say: (t) => { if (rec.voice) speak(t, { flush: true }); },
+          onArrive: () => { stopBtn.classList.add('pulse'); stopBtn.textContent = '✓ Llegué · Terminar'; } });
+        leftCell.style.display = '';
         navBanner.style.display = '';
         navDist.textContent = 'Buscando GPS…';
         navText.textContent = r.name;
@@ -485,7 +493,8 @@ async function startLive(rec, routeId) {
     if (!st.next) return;
     navArrow.innerHTML = arrowSvg(st.next);
     navDist.textContent = st.dist >= 1000 ? `${fmtNum(st.dist / 1000, 1)} km` : `${Math.max(0, Math.round(st.dist / 10) * 10)} m`;
-    navText.textContent = st.text + (st.total ? ` · faltan ${fmtNum(Math.max(0, st.total - st.along) / 1000, 1)} km` : '');
+    navText.textContent = nav?.arrived ? `Llegaste${nav.destName ? ' a ' + nav.destName : ''}` : st.text;
+    if (st.total) v.left.textContent = fmtNum(Math.max(0, st.total - st.along) / 1000, 1);
   };
   rec.onFix = (lat, lon, kmh) => { if (nav && rec.state === 'running') paintNav(nav.update(lat, lon, kmh)); };
   const line = L.polyline(rec.points.map(p => [p[0], p[1]]), { color: T.color === '#c6f432' ? '#65a30d' : T.color, weight: 6 }).addTo(map);
@@ -506,9 +515,9 @@ async function startLive(rec, routeId) {
   rec.onUpdate = (r) => {
     const el = r.elapsedS(), km = r.distM / 1000;
     v.time.textContent = fmtDuration(el);
-    v.dist.textContent = fmtNum(km, 2);
-    if (T.speed) { v.a.textContent = fmtNum(r.curKmh || 0, 1); v.b.textContent = el > 5 ? fmtNum(km / (el / 3600), 1) : '—'; }
-    else { v.a.textContent = fmtPace(km, el); v.b.textContent = r.curKmh > 1 ? fmtPace(1, 3600 / r.curKmh) : '—'; }
+    v.dist.textContent = fmtNum(km, km >= 100 ? 0 : km >= 10 ? 1 : 2);
+    if (T.speed) { v.a.textContent = r.state === 'running' ? fmtNum(r.curKmh || 0, (r.curKmh || 0) >= 10 ? 0 : 1) : '0'; v.b.textContent = el > 5 ? fmtNum(km / (el / 3600), 1) : '—'; }
+    else { v.a.textContent = r.curKmh > 1 ? fmtPace(1, 3600 / r.curKmh) : '—'; v.b.textContent = fmtPace(km, el); }
     const acc = r.accuracy;
     status.children[0].className = `gps-dot ${acc == null ? '' : acc <= 15 ? 'ok' : 'meh'}`;
     status.children[1].textContent = r.error || (r.state === 'paused' ? 'En pausa' : acc == null ? 'Buscando GPS…' : `GPS ±${Math.round(acc)} m · ${r.points.length} puntos`);
@@ -694,17 +703,14 @@ async function viewMas() {
   const lastOk = await store.getSetting('lastSyncOk', 0);
   let health = null; try { health = await api('/api/health'); } catch {}
 
-  const q = h('input', { class: 'input', placeholder: 'Buscar dirección (ej: Chorroarín 530)' });
-  const results = h('div', {});
-  const doSearch = async () => {
-    results.replaceChildren(spinner('Buscando…'));
-    try {
-      const rs = await api(`/api/geocode?q=${encodeURIComponent(q.value)}`);
-      results.replaceChildren(...(rs.length ? rs.map(r => h('div', { class: 'act', onclick: () => setHome({ label: r.name.split(',').slice(0, 3).join(','), lat: r.lat, lon: r.lon }) }, h('div', { class: 'grow small' }, r.name))) : [h('div', { class: 'muted small' }, 'Sin resultados')]));
-    } catch (e) { results.replaceChildren(h('div', { class: 'muted small' }, e.message)); }
-  };
-  q.addEventListener('keydown', e => { if (e.key === 'Enter') doSearch(); });
-
+  const placesCard = h('div', { class: 'card' }, h('h3', {}, '📍 Mis lugares'),
+    h('div', { class: 'muted small', style: { margin: '4px 0 6px' } }, 'Para “Ir a casa”, “Ir al trabajo”, etc. Casa es también el punto de partida de las rutas sugeridas.'));
+  getPlaces().then(list => placesCard.append(
+    ...list.map(pl => h('div', { class: 'act', onclick: () => editPlace(pl) },
+      h('div', { class: 'e' }, pl.emoji),
+      h('div', { class: 'grow' }, h('div', { class: 't' }, pl.name), h('div', { class: 's' }, pl.lat != null ? pl.label : 'Sin configurar')),
+      h('span', { class: 'muted' }, '✎'))),
+    h('button', { class: 'btn block', style: { marginTop: '8px' }, onclick: () => editPlace({ id: 'lugar-' + uid(), name: '', emoji: '📍' }) }, '＋ Agregar lugar')));
   const tokenIn = h('input', { class: 'input', type: 'password', value: token, placeholder: 'Clave de sincronización', autocomplete: 'off' });
   const syncStatus = h('div', { class: 'muted small', style: { marginTop: '8px' } },
     !health?.sync ? 'El servidor no tiene la sincronización activada.' : token ? (lastOk ? `Última sincronización: ${fmtDate(lastOk)} ${fmtTime(lastOk)}` : 'Configurada, todavía sin sincronizar.') : 'Sin configurar: tus datos viven solo en este celular.');
@@ -716,11 +722,7 @@ async function viewMas() {
 
   app.replaceChildren(
     h('div', { class: 'page-title' }, h('h1', {}, 'Más')),
-    h('div', { class: 'card' }, h('h3', {}, '🏠 Desde dónde salís'), h('div', { class: 'muted small', style: { margin: '4px 0 10px' } }, S.home.label),
-      h('div', { class: 'row' }, q, h('button', { class: 'btn', onclick: doSearch }, 'Buscar')), results,
-      h('button', { class: 'btn block', style: { marginTop: '8px' }, onclick: () => {
-        navigator.geolocation.getCurrentPosition(p => setHome({ label: 'Mi ubicación', lat: p.coords.latitude, lon: p.coords.longitude }), () => toast('No pude obtener tu ubicación'), { enableHighAccuracy: true, timeout: 15000 });
-      } }, '📍 Usar mi ubicación actual')),
+    placesCard,
     h('div', { class: 'card' }, h('h3', {}, '☁️ Sincronización'),
       h('div', { class: 'muted small', style: { margin: '4px 0 10px' } }, 'Con la clave, tus actividades se guardan también en tu servidor y las ves desde cualquier dispositivo.'),
       tokenIn,
@@ -786,6 +788,152 @@ async function setHome(home) {
   S.weather = null; toast('Casa actualizada'); viewMas();
 }
 
+// ======================= lugares: "Ir a casa", trabajo, etc. =======================
+const DEFAULT_PLACES = [
+  { id: 'trabajo1', name: 'Trabajo 1', emoji: '💼' },
+  { id: 'trabajo2', name: 'Trabajo 2', emoji: '💼' },
+];
+const PLACE_EMOJIS = ['🏠', '💼', '🎓', '🏋️', '☕', '🛒', '👪', '❤️', '📍'];
+
+async function getPlaces() {
+  const extra = await store.getSetting('places', DEFAULT_PLACES);
+  return [{ id: 'casa', name: 'Casa', emoji: '🏠', label: S.home.label, lat: S.home.lat, lon: S.home.lon }, ...extra];
+}
+
+async function savePlace(pl) {
+  if (pl.id === 'casa') { S.home = { label: pl.label, lat: pl.lat, lon: pl.lon }; await store.setSetting('home', S.home); S.weather = null; return; }
+  const list = await store.getSetting('places', DEFAULT_PLACES);
+  const i = list.findIndex(x => x.id === pl.id);
+  if (i >= 0) list[i] = pl; else list.push(pl);
+  await store.setSetting('places', list);
+}
+
+async function deletePlace(id) {
+  const list = (await store.getSetting('places', DEFAULT_PLACES)).filter(x => x.id !== id);
+  await store.setSetting('places', list);
+}
+
+// Ubicación actual (una sola lectura)
+function currentPosition() {
+  if (isNative) {
+    const BG = plugin('BackgroundGeolocation');
+    return new Promise((resolve, reject) => {
+      let done = false, idP = null;
+      const finish = (fn, v) => { if (done) return; done = true; clearTimeout(timer); idP?.then(id => BG.removeWatcher({ id })).catch(() => {}); fn(v); };
+      const timer = setTimeout(() => finish(reject, new Error('No consigo señal GPS. Probá al aire libre.')), 25000);
+      idP = BG.addWatcher({ requestPermissions: true, stale: true }, (loc, err) => {
+        if (err) { if (err.code === 'NOT_AUTHORIZED') finish(reject, new Error('Sin permiso de ubicación')); return; }
+        if (loc && loc.accuracy <= 150) finish(resolve, [loc.latitude, loc.longitude]);
+      });
+    });
+  }
+  return new Promise((resolve, reject) => {
+    if (!('geolocation' in navigator)) return reject(new Error('Sin GPS en este dispositivo'));
+    navigator.geolocation.getCurrentPosition(p => resolve([p.coords.latitude, p.coords.longitude]),
+      e => reject(new Error(e.code === 1 ? 'Sin permiso de ubicación' : 'No consigo tu ubicación')),
+      { enableHighAccuracy: true, timeout: 20000, maximumAge: 30000 });
+  });
+}
+
+function placesBar() {
+  const row = h('div', { class: 'places' }, spinner('…'));
+  getPlaces().then(list => {
+    row.replaceChildren(
+      ...list.map(pl => h('button', { class: `place ${pl.lat == null ? 'unset' : ''}`, onclick: () => (pl.lat == null ? editPlace(pl) : goTo(pl)) },
+        h('span', { class: 'pe' }, pl.emoji), h('span', { class: 'pn' }, pl.name), h('span', { class: 'ps' }, pl.lat == null ? 'Configurar' : 'Ir'))),
+      h('button', { class: 'place add', onclick: () => editPlace({ id: 'lugar-' + uid(), name: '', emoji: '📍' }) }, h('span', { class: 'pe' }, '＋'), h('span', { class: 'pn' }, 'Lugar'), h('span', { class: 'ps' }, 'Agregar')));
+  });
+  return h('div', {}, sectionH('Ir a…', h('a', { href: '#/mas', class: 'small' }, 'Editar')), row);
+}
+
+function editPlace(pl) {
+  const isNew = !pl.name && pl.id !== 'casa';
+  let sel = { label: pl.label, lat: pl.lat, lon: pl.lon };
+  let emoji = pl.emoji || '📍';
+  const name = h('input', { class: 'input', value: pl.name, placeholder: 'Ej: Facultad', disabled: pl.id === 'casa' });
+  const where = h('div', { class: 'small', style: { margin: '8px 2px' } }, sel.lat != null ? `📍 ${sel.label || 'Ubicación guardada'}` : 'Todavía sin dirección');
+  const q = h('input', { class: 'input', placeholder: 'Buscar dirección (calle y número)' });
+  const results = h('div', {});
+  const choose = (v) => { sel = v; where.textContent = `📍 ${v.label}`; results.replaceChildren(); };
+  const doSearch = async () => {
+    if (q.value.trim().length < 3) return;
+    results.replaceChildren(spinner('Buscando…'));
+    try {
+      const rs = await api(`/api/geocode?q=${encodeURIComponent(q.value)}`);
+      results.replaceChildren(...(rs.length ? rs.map(r => h('div', { class: 'act', onclick: () => choose({ label: r.name.split(',').slice(0, 3).join(','), lat: r.lat, lon: r.lon }) }, h('div', { class: 'grow small' }, r.name))) : [h('div', { class: 'muted small' }, 'Sin resultados')]));
+    } catch (e) { results.replaceChildren(h('div', { class: 'muted small' }, e.message)); }
+  };
+  q.addEventListener('keydown', e => { if (e.key === 'Enter') doSearch(); });
+  const emojis = h('div', { class: 'chips' }, ...PLACE_EMOJIS.map(e => {
+    const b = h('button', { class: `chip ${e === emoji ? 'on' : ''}`, onclick: () => { emoji = e; [...emojis.children].forEach(c => c.classList.toggle('on', c.textContent === e)); } }, e);
+    return b;
+  }));
+  const sh = sheet(pl.id === 'casa' ? '🏠 Casa' : isNew ? 'Nuevo lugar' : `${pl.emoji} ${pl.name}`, h('div', {},
+    pl.id === 'casa' ? h('div', { class: 'muted small', style: { marginBottom: '8px' } }, 'Casa es también el punto de partida de las rutas sugeridas.') : h('label', { class: 'field' }, h('span', { class: 'label' }, 'Nombre'), name),
+    pl.id === 'casa' ? '' : emojis,
+    where,
+    h('div', { class: 'row' }, q, h('button', { class: 'btn', onclick: doSearch }, 'Buscar')), results,
+    h('button', { class: 'btn block', style: { marginTop: '8px' }, onclick: async () => {
+      toast('Buscando tu ubicación…');
+      try { const p = await currentPosition(); choose({ label: 'Ubicación marcada con GPS', lat: p[0], lon: p[1] }); } catch (e) { toast(e.message); }
+    } }, '📍 Usar dónde estoy ahora'),
+    h('button', { class: 'btn primary block', style: { marginTop: '12px' }, onclick: async () => {
+      const nm = pl.id === 'casa' ? 'Casa' : name.value.trim();
+      if (!nm) { toast('Poné un nombre'); return; }
+      if (sel.lat == null) { toast('Elegí una dirección'); return; }
+      await savePlace({ ...pl, name: nm, emoji, ...sel });
+      sh.close(); toast('Guardado'); render();
+    } }, 'Guardar'),
+    pl.id !== 'casa' && !isNew ? h('button', { class: 'btn danger block', style: { marginTop: '8px' }, onclick: async () => {
+      if (!confirm(`¿Borrar ${pl.name}?`)) return;
+      await deletePlace(pl.id); sh.close(); render();
+    } }, 'Borrar lugar') : ''));
+}
+
+const ETA_KMH = { bici: 18, correr: 10, caminar: 5 };
+
+async function goTo(pl) {
+  toast(`Buscando tu ubicación para ir a ${pl.name}…`, 6000);
+  let pos;
+  try { pos = await currentPosition(); } catch (e) { toast(e.message); return; }
+  document.querySelector('#toast')?.classList.remove('show');
+  const meters = L.latLng(pos[0], pos[1]).distanceTo(L.latLng(pl.lat, pl.lon));
+  if (meters < 80) { toast(`Ya estás en ${pl.name} 🙂`); return; }
+  const trip = { id: `trip-${pl.id}`, name: `Hacia ${pl.name}`, destName: pl.name, isLoop: false, origin: pos, waypoints: [[pl.lat, pl.lon]], training: 3, exposure: 0.5, approxKm: meters / 1000 };
+  S.generated.set(trip.id, trip);
+  await store.setSetting('trips', { ...(await store.getSetting('trips', {})), [trip.id]: trip });
+
+  let type = await store.getSetting('lastType', 'bici');
+  if (type === 'cinta') type = 'bici';
+  const mapEl = h('div', { class: 'map', style: { height: '240px' } });
+  const info = h('div', { class: 'muted small' }, 'Calculando el recorrido…');
+  const eta = h('div', { class: 'small' });
+  const goBtn = h('button', { class: 'btn primary block', style: { padding: '18px', fontSize: '18px', marginTop: '12px' }, disabled: true }, '▶ Ir');
+  const seg = h('div', { class: 'seg', style: { margin: '10px 0 0' } }, ...['bici', 'correr', 'caminar'].map(k =>
+    h('button', { class: k === type ? 'on' : '', onclick: (e) => { type = k; [...seg.children].forEach(b => b.classList.toggle('on', b === e.currentTarget)); paintEta(); } }, `${TYPES[k].emoji} ${TYPES[k].label}`)));
+  let data = null;
+  const paintEta = () => { if (data) eta.textContent = `≈ ${fmtDuration((data.distanceKm / ETA_KMH[type]) * 3600, false)} en ${TYPES[type].label.toLowerCase()}`; };
+  const sh = sheet(`${pl.emoji} Ir a ${pl.name}`, h('div', {}, mapEl, info, eta, seg, goBtn));
+  const map = L.map(mapEl, { zoomControl: false, attributionControl: false }).setView(pos, 14);
+  BASES['Claro']().addTo(map);
+  L.marker([pl.lat, pl.lon], { icon: L.divIcon({ className: '', html: `<div class="home-pin">${pl.emoji}</div>`, iconSize: [22, 22], iconAnchor: [11, 11] }) }).addTo(map);
+  L.marker(pos, { icon: L.divIcon({ className: '', html: '<div class="me-dot"></div>', iconSize: [18, 18], iconAnchor: [9, 9] }) }).addTo(map);
+  try {
+    data = await computeRoute(trip, S.home, S.profile);
+    drawRoute(map, data);
+    info.replaceChildren(h('b', { style: { color: 'var(--text)', fontSize: '18px' } }, `${fmtKm(data.distanceKm)} km`), data.share ? ` · ${Math.round(data.share.bike * 100)}% por ciclovía` : '');
+    paintEta();
+    goBtn.disabled = false;
+    goBtn.onclick = () => {
+      sh.close();
+      store.setSetting('lastType', type);
+      startLive(new Recorder({ type, routeId: trip.id, voice: S.voice, keepScreen: S.keepScreen }), trip.id);
+    };
+  } catch (e) {
+    info.textContent = `No pude calcular el recorrido: ${e.message}`;
+  }
+}
+
 // ======================= varios =======================
 function pickFile(accept, cb) {
   const inp = h('input', { type: 'file', accept, style: { display: 'none' } });
@@ -829,6 +977,7 @@ async function boot() {
   S.profile = await store.getSetting('profile', 'trekking');
   S.voice = await store.getSetting('voice', true);
   S.keepScreen = await store.getSetting('keepScreen', true);
+  Object.values(await store.getSetting('trips', {})).forEach(t => S.generated.set(t.id, t));
 
   // Migración desde el Training Log viejo (GitHub Pages) vía #legacy=<base64>
   if (location.hash.startsWith('#legacy=')) {

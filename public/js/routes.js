@@ -65,15 +65,17 @@ export const homeKey = (home) => `${home.lat.toFixed(4)},${home.lon.toFixed(4)}`
 
 export function routePoints(route, home) {
   const wps = route.waypoints || [];
-  if (route.isLoop === false) return [[home.lat, home.lon], ...wps];
-  return [[home.lat, home.lon], ...wps, [home.lat, home.lon]];
+  const start = route.origin ? route.origin : [home.lat, home.lon];
+  if (route.isLoop === false) return [start, ...wps];
+  return [start, ...wps, start];
 }
+const routeKey = (route, home, profile) => `route3:${route.id}:${profile}:${route.origin ? 'o' + hashWps(route.origin) : homeKey(home)}:${hashWps(route.waypoints)}`;
 
 // Pide el ruteo al servidor y lo guarda en caché local (IndexedDB)
 export async function computeRoute(route, home, profile = 'trekking', { force = false } = {}) {
   const pts = route.coords && !route.waypoints ? null : routePoints(route, home);
   if (!pts) return { coords: route.coords, spans: route.spans || [{ from: 0, to: route.coords.length - 1, cls: 'road' }], distanceKm: route.distanceKm, ascentM: route.ascentM || 0, share: route.share || null };
-  const key = `route3:${route.id}:${profile}:${homeKey(home)}:${hashWps(route.waypoints)}`;
+  const key = routeKey(route, home, profile);
   if (!force) {
     const c = await get('kv', key);
     if (c && Date.now() - c.value.t < 30 * 86400e3) return c.value.data;
@@ -86,7 +88,7 @@ export async function computeRoute(route, home, profile = 'trekking', { force = 
 
 export async function cachedRoute(route, home, profile = 'trekking') {
   if (route.coords && !route.waypoints) return { coords: route.coords, distanceKm: route.distanceKm, share: route.share || null };
-  const key = `route3:${route.id}:${profile}:${homeKey(home)}:${hashWps(route.waypoints)}`;
+  const key = routeKey(route, home, profile);
   const c = await get('kv', key);
   return c ? c.value.data : null;
 }

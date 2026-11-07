@@ -6,7 +6,8 @@ const OFF_ROUTE_M = 50;    // a más de esto (varias lecturas seguidas) te salis
 const OFF_REPEAT_MS = 45000;
 
 export class Navigator {
-  constructor(data, { mode = 'bici', say }) {
+  constructor(data, { mode = 'bici', say, destName = '', onArrive = null }) {
+    this.destName = destName; this.onArrive = onArrive; this.arrived = false;
     this.pts = data.coords.map(c => [c[0], c[1]]);
     this.cum = cumulative(this.pts);
     this.total = this.cum[this.cum.length - 1] || 0;
@@ -88,14 +89,17 @@ export class Navigator {
 
     if (!this.started) {
       this.started = true;
-      const intro = `Navegación iniciada. Ruta de ${spokenDistance(this.total - this.along)}.`;
+      const intro = this.destName ? `Vamos a ${this.destName}: ${spokenDistance(this.total - this.along)}.` : `Navegación iniciada. Ruta de ${spokenDistance(this.total - this.along)}.`;
       if (m.type === 'arrive') this.say(intro);
       else if (dist <= T.near) { this.say(`${intro} ${text}.`); this.stage.set(ni, 3); }
       else if (dist <= T.far) { this.say(`${intro} En ${spokenDistance(dist)}, ${lowerFirst(text)}.`); this.stage.set(ni, 1); }
       else { this.say(`${intro} Seguí derecho ${spokenDistance(dist)}.`); this.stage.set(ni, 0.5); }
     } else if (m.type === 'arrive') {
-      if (dist <= 25 && st < 3) { this.say('Llegaste. Terminaste la ruta. ¡Bien ahí!'); this.stage.set(ni, 3); this.done = true; }
-      else if (dist <= T.near * 2 && st < 2) { this.say(`En ${spokenDistance(dist)} llegás al final de la ruta.`); this.stage.set(ni, 2); }
+      if (dist <= 25 && st < 3) {
+        this.say(this.destName ? `Llegaste a ${this.destName}.` : 'Llegaste. Terminaste la ruta. ¡Bien ahí!');
+        this.stage.set(ni, 3); this.done = true; this.arrived = true; this.onArrive?.();
+      }
+      else if (dist <= T.near * 2 && st < 2) { this.say(`En ${spokenDistance(dist)} llegás ${this.destName ? 'a ' + this.destName : 'al final de la ruta'}.`); this.stage.set(ni, 2); }
     } else if (dist <= T.now && st < 3) {
       this.say(`${text}${this.chained(ni)}.`);
       this.stage.set(ni, 3); this.continueAfter = ni;
